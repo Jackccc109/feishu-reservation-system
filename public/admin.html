@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>预约签到 - 门店管理</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <!-- ========== 顶部 ========== -->
+  <div class="topbar topbar-admin">
+    <div class="topbar-brand" id="storeName">优品生活馆</div>
+    <div class="topbar-addr">门店管理后台</div>
+  </div>
+
+  <div class="all-in-one">
+
+    <!-- ===== 签到 ===== -->
+    <section class="panel" id="panel-checkin">
+      <div class="panel-header">
+        <span class="step-badge">1</span>
+        <h2>客户签到</h2>
+        <span class="panel-sub">三种方式任选其一</span>
+      </div>
+      <div class="panel-body">
+        <!-- 签到方式Tab -->
+        <div class="checkin-tabs" id="checkinTabs">
+          <button class="checkin-tab active" data-tab="phone" onclick="switchCheckinTab('phone')">📱 手机尾号</button>
+          <button class="checkin-tab" data-tab="code" onclick="switchCheckinTab('code')">🔢 验证码</button>
+          <button class="checkin-tab" data-tab="scan" onclick="switchCheckinTab('scan')">📷 扫一扫</button>
+        </div>
+
+        <!-- 方式1：手机尾号 -->
+        <div class="checkin-method" id="checkinPhone">
+          <p class="checkin-method-desc">输入客户手机号后4位，自动匹配今日待签预约</p>
+          <div class="checkin-row">
+            <input type="text" id="inputPhone" class="form-input checkin-input"
+              placeholder="手机尾号后4位" maxlength="4" autocomplete="off" inputmode="numeric"
+              style="font-size:22px !important; letter-spacing:4px !important;">
+            <button class="btn btn-success" id="btnCheckinPhone" onclick="doCheckinPhone()">确认签到</button>
+          </div>
+          <div class="form-error" id="checkinPhoneError"></div>
+        </div>
+
+        <!-- 方式2：6位签到验证码 -->
+        <div class="checkin-method" id="checkinCode" style="display:none;">
+          <p class="checkin-method-desc">输入客户提供的6位签到验证码</p>
+          <div class="checkin-row">
+            <input type="text" id="inputSigninCode" class="form-input checkin-input"
+              placeholder="输入6位签到验证码" maxlength="6" autocomplete="off"
+              style="font-size:22px !important; letter-spacing:8px !important;">
+            <button class="btn btn-success" id="btnCheckinCode" onclick="doCheckinCode()">确认签到</button>
+          </div>
+          <div class="form-error" id="checkinCodeError"></div>
+        </div>
+
+        <!-- 方式3：扫一扫 -->
+        <div class="checkin-method" id="checkinScan" style="display:none;">
+          <p class="checkin-method-desc">扫描客户出示的预约二维码</p>
+          <button class="btn btn-scan btn-block" id="btnScan" onclick="startScanner()"
+            style="padding:16px;font-size:16px;">
+            📷 打开摄像头扫码签到
+          </button>
+          <div id="scannerArea" style="display:none;">
+            <div id="scannerReader" style="width:100%;max-width:400px;margin:12px auto;"></div>
+            <button class="btn btn-outline btn-sm" onclick="stopScanner()" style="display:block;margin:8px auto;">关闭摄像头</button>
+          </div>
+          <div class="form-error" id="checkinScanError"></div>
+        </div>
+
+        <div class="checkin-result" id="checkinResult"></div>
+      </div>
+    </section>
+
+    <!-- ===== 统计看板 ===== -->
+    <section class="panel" id="panel-stats">
+      <div class="panel-header">
+        <span class="step-badge">2</span>
+        <h2>今日概览</h2>
+        <span class="panel-sub" id="statsDate">--</span>
+      </div>
+      <div class="panel-body">
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-card total"><div class="stat-num">-</div><div class="stat-label">今日预约</div></div>
+          <div class="stat-card pending"><div class="stat-num">-</div><div class="stat-label">待签到</div></div>
+          <div class="stat-card checked"><div class="stat-num">-</div><div class="stat-label">已签到</div></div>
+          <div class="stat-card cancel"><div class="stat-num">-</div><div class="stat-label">已取消</div></div>
+        </div>
+
+        <!-- 排队看板 -->
+        <div class="queue-board" id="queueBoard" style="margin-top:16px;">
+          <div class="queue-col">
+            <h3>📋 今日预约时段</h3>
+            <p class="queue-tip">预约体验区间：10:00-22:00，除下方已预约时段不可预约，其他都可以哦</p>
+            <div id="queuePending"><div class="queue-empty">暂无</div></div>
+          </div>
+          <div class="queue-col">
+            <h3>✅ 已签到（按签到顺序）</h3>
+            <div id="queueChecked"><div class="queue-empty">暂无</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 预约列表 ===== -->
+    <section class="panel" id="panel-list">
+      <div class="panel-header">
+        <span class="step-badge">3</span>
+        <h2>预约记录</h2>
+        <span class="panel-sub">今日全部预约明细</span>
+      </div>
+      <div class="panel-body">
+        <div class="list-header-bar">
+          <h3 id="listTitle">全部预约</h3>
+          <div class="filter-bar">
+            <button class="btn btn-outline btn-sm" id="btnDateToggle" onclick="toggleDateFilter()">📅 日期筛选</button>
+            <button class="btn btn-outline btn-sm active" data-status="" onclick="filterList('',this)">全部</button>
+            <button class="btn btn-outline btn-sm" data-status="pending" onclick="filterList('pending',this)">待签</button>
+            <button class="btn btn-outline btn-sm" data-status="checked_in" onclick="filterList('checked_in',this)">已签</button>
+            <button class="btn btn-outline btn-sm" onclick="refreshAll()">🔄 刷新</button>
+          </div>
+        </div>
+        <!-- 日期筛选（默认隐藏） -->
+        <div class="date-filter-row" id="dateFilterRow" style="display:none;">
+          <input type="date" id="filterDate" class="form-input" style="width:180px;">
+          <button class="btn btn-primary btn-sm" onclick="applyDateFilter()">筛选</button>
+          <button class="btn btn-outline btn-sm" onclick="resetDateFilter()">今天</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>预约码</th><th>姓名</th><th>手机号</th><th>人数</th><th>时段</th><th>场景</th><th>排队</th><th>状态</th><th>签到时间</th><th>操作</th></tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- ===== 改签弹窗 ===== -->
+<div class="modal-overlay" id="rescheduleModal" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>改签预约</h3>
+      <button class="modal-close" onclick="closeReschedule()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-info" id="rescheduleInfo">--</p>
+      <div class="form-group">
+        <label class="form-label">新日期</label>
+        <input type="date" id="rescheduleDate" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">新时段</label>
+        <select id="rescheduleSlot" class="form-input">
+          <option value="">请先选择日期</option>
+        </select>
+      </div>
+      <div class="form-error" id="rescheduleError"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeReschedule()">取消</button>
+      <button class="btn btn-primary" id="btnRescheduleConfirm" onclick="doReschedule()">确认改签</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ 全局状态 ============ */
+let currentCheckinTab = 'phone';
+let listFilter = '';
+let filterDate = new Date().toISOString().split('T')[0];
+let rescheduleCode = null;
+const today = new Date().toISOString().split('T')[0];
+
+/* ============ 初始化 ============ */
+async function init() {
+  document.getElementById('statsDate').textContent = today;
+  document.getElementById('filterDate').value = today;
+  try {
+    const res = await fetch('/api/settings');
+    const d = await res.json();
+    document.getElementById('storeName').textContent = d.storeName;
+  } catch (e) { /* ignore */ }
+  await refreshAll();
+  setInterval(refreshAll, 30000);
+}
+
+/* ============ 签到 Tab 切换 ============ */
+function switchCheckinTab(tab) {
+  currentCheckinTab = tab;
+  document.querySelectorAll('.checkin-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.checkin-tab[data-tab="${tab}"]`).classList.add('active');
+  document.querySelectorAll('.checkin-method').forEach(m => m.style.display = 'none');
+  const methodMap = { phone: 'checkinPhone', code: 'checkinCode', scan: 'checkinScan' };
+  document.getElementById(methodMap[tab]).style.display = '';
+  document.getElementById('checkinResult').className = 'checkin-result';
+  document.querySelectorAll('.form-error').forEach(e => e.classList.remove('show'));
+  if (tab !== 'scan') stopScanner();
+}
+
+/* ============ 方式1：手机号签到 ============ */
+async function doCheckinPhone() {
+  const phone = document.getElementById('inputPhone').value.trim();
+
+  if (!phone) return showError('checkinPhoneError', '请输入手机尾号后4位');
+  if (!/^\d{4}$/.test(phone)) return showError('checkinPhoneError', '请输入4位数字');
+
+  const btn = document.getElementById('btnCheckinPhone');
+  btn.disabled = true; btn.textContent = '签到中…';
+  hideError('checkinPhoneError');
+
+  try {
+    const res = await fetch('/api/checkin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone })
+    });
+    const data = await res.json();
+    showCheckinResult(res.ok, data);
+    if (res.ok) document.getElementById('inputPhone').value = '';
+  } catch (e) {
+    showCheckinResult(false, { error: '网络异常' });
+  }
+
+  btn.disabled = false; btn.textContent = '确认签到';
+  refreshAll();
+}
+
+/* ============ 方式2：验证码签到 ============ */
+async function doCheckinCode() {
+  const signinCode = document.getElementById('inputSigninCode').value.trim();
+  if (!signinCode) return showError('checkinCodeError', '请输入签到验证码');
+
+  const btn = document.getElementById('btnCheckinCode');
+  btn.disabled = true; btn.textContent = '签到中…';
+  hideError('checkinCodeError');
+
+  try {
+    const res = await fetch('/api/checkin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ signinCode })
+    });
+    const data = await res.json();
+    showCheckinResult(res.ok, data);
+    if (res.ok) document.getElementById('inputSigninCode').value = '';
+  } catch (e) {
+    showCheckinResult(false, { error: '网络异常' });
+  }
+
+  btn.disabled = false; btn.textContent = '确认签到';
+  refreshAll();
+}
+
+/* ============ 签到结果展示 ============ */
+function showCheckinResult(success, data) {
+  const el = document.getElementById('checkinResult');
+  if (success) {
+    const r = data.reservation;
+    let aheadText = r.ahead === 0
+      ? '<span style="color:var(--success)">当前排第一位，准备入场</span>'
+      : `前方还有 <strong>${r.ahead}</strong> 人`;
+    el.className = 'checkin-result show success';
+    el.innerHTML = `
+      <div class="result-icon">✅</div>
+      <div class="result-title">签到成功</div>
+      <div class="result-desc">${r.name} · ${r.partySize}人 · ${r.timeSlot} · ${aheadText}</div>
+    `;
+  } else {
+    el.className = 'checkin-result show error';
+    el.innerHTML = `
+      <div class="result-icon">❌</div>
+      <div class="result-title">签到失败</div>
+      <div class="result-desc">${data.error}</div>
+    `;
+  }
+  el.scrollIntoView({ behavior: 'smooth' });
+}
+
+/* ============ 扫码器 ============ */
+let html5QrCode = null;
+
+async function startScanner() {
+  const area = document.getElementById('scannerArea');
+  const btn = document.getElementById('btnScan');
+
+  if (html5QrCode && html5QrCode.isScanning) return;
+
+  area.style.display = '';
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert('当前浏览器不支持摄像头，请使用手机浏览器');
+    area.style.display = 'none';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '📷 启动中…';
+
+  try {
+    html5QrCode = new Html5Qrcode('scannerReader');
+    const cameras = await Html5Qrcode.getCameras();
+
+    if (!cameras || cameras.length === 0) {
+      alert('未检测到摄像头');
+      area.style.display = 'none';
+      btn.disabled = false;
+      btn.textContent = '📷 打开摄像头扫码签到';
+      return;
+    }
+
+    const useCameraId = cameras[cameras.length - 1].id;
+    btn.textContent = '📷 扫描中…';
+
+    await html5QrCode.start(
+      useCameraId,
+      { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+      (decodedText) => { onScanSuccess(decodedText); },
+      () => { /* ignore */ }
+    );
+  } catch (err) {
+    console.error('扫码器启动失败:', err);
+    alert('摄像头启动失败: ' + (err.message || '请检查权限设置'));
+    area.style.display = 'none';
+    btn.disabled = false;
+    btn.textContent = '📷 打开摄像头扫码签到';
+  }
+}
+
+function onScanSuccess(decodedText) {
+  let code = decodedText.trim();
+  try {
+    const url = new URL(code);
+    code = url.searchParams.get('code') || code;
+  } catch (e) { /* not a URL */ }
+
+  if (!code || code.length < 6) {
+    code = code.replace(/[^A-Z0-9]/gi, '').slice(-6);
+  }
+
+  stopScanner();
+  doScanCheckin(code);
+}
+
+async function doScanCheckin(code) {
+  hideError('checkinScanError');
+  try {
+    const res = await fetch('/api/checkin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const data = await res.json();
+    showCheckinResult(res.ok, data);
+  } catch (e) {
+    showCheckinResult(false, { error: '网络异常' });
+  }
+  refreshAll();
+}
+
+async function stopScanner() {
+  if (html5QrCode && html5QrCode.isScanning) {
+    try { await html5QrCode.stop(); } catch (e) { /* ignore */ }
+    html5QrCode.clear();
+  }
+  html5QrCode = null;
+  document.getElementById('scannerArea').style.display = 'none';
+  const btn = document.getElementById('btnScan');
+  btn.disabled = false;
+  btn.textContent = '📷 打开摄像头扫码签到';
+}
+
+/* ============ 管理看板 ============ */
+async function refreshAll() {
+  await Promise.all([loadStats(), loadQueue(), loadList()]);
+}
+
+async function loadStats() {
+  try {
+    const res = await fetch('/api/admin/stats?date=' + today);
+    const d = await res.json();
+    document.getElementById('statsGrid').innerHTML = `
+      <div class="stat-card total"><div class="stat-num">${d.total}</div><div class="stat-label">今日预约</div></div>
+      <div class="stat-card pending"><div class="stat-num">${d.pending}</div><div class="stat-label">待签到</div></div>
+      <div class="stat-card checked"><div class="stat-num">${d.checkedIn}</div><div class="stat-label">已签到</div></div>
+      <div class="stat-card cancel"><div class="stat-num">${d.cancelled}</div><div class="stat-label">已取消</div></div>
+    `;
+  } catch (e) { console.error(e); }
+}
+
+async function loadQueue() {
+  try {
+    const res = await fetch('/api/admin/queue');
+    const d = await res.json();
+
+    // 姓名脱敏 + 手机号（前3位+**+后2位）
+    function maskName(name) { return name ? name[0] + '**' : '***'; }
+    function phoneMask(phone) { return phone ? phone.slice(0,3) + '**' + phone.slice(-2) : '------'; }
+
+    // 等待签到：按时段分组
+    if (d.pending.length === 0) {
+      document.getElementById('queuePending').innerHTML = '<div class="queue-empty">暂无预约</div>';
+    } else {
+      const grouped = {};
+      d.pending.forEach(r => {
+        if (!grouped[r.timeSlot]) grouped[r.timeSlot] = [];
+        grouped[r.timeSlot].push(r);
+      });
+      document.getElementById('queuePending').innerHTML = Object.entries(grouped)
+        .map(([slot, list]) => `
+          <div class="queue-slot-group">
+            <div class="queue-slot-header">${slot}</div>
+            ${list.map(r => `<div class="queue-item">
+              <div>
+                <span class="queue-name">${maskName(r.name)}</span>
+                <span class="queue-meta">${r.partySize}人 · ${phoneMask(r.phone)}</span>
+              </div>
+            </div>`).join('')}
+          </div>
+        `).join('');
+    }
+
+    document.getElementById('queueChecked').innerHTML = d.checkedIn.length === 0
+      ? '<div class="queue-empty">暂无</div>'
+      : d.checkedIn.map((r, i) => `<div class="queue-item">
+          <div>
+            <span class="queue-name">${maskName(r.name)}</span>
+            <span class="queue-meta">${r.partySize}人 · ${phoneMask(r.phone)} · ${r.timeSlot}</span>
+          </div>
+          <span class="queue-badge arrived"># ${i + 1}</span>
+        </div>`).join('');
+  } catch (e) { console.error(e); }
+}
+
+async function loadList() {
+  try {
+    let url = '/api/admin/reservations?date=' + filterDate;
+    if (listFilter) url += '&status=' + listFilter;
+    const res = await fetch(url);
+    const d = await res.json();
+
+    const tbody = document.getElementById('tableBody');
+    if (!d.reservations.length) {
+      tbody.innerHTML = '<tr><td colspan="9" class="td-empty">暂无数据</td></tr>';
+      return;
+    }
+
+    const statusMap = {
+      pending: '<span class="status-tag pending">待签到</span>',
+      checked_in: '<span class="status-tag checked">已签到</span>',
+      cancelled: '<span class="status-tag cancelled">已取消</span>'
+    };
+    function maskName(name) { return name ? name[0] + '**' : '***'; }
+    function phoneMask(phone) { return phone ? phone.slice(0,3) + '**' + phone.slice(-2) : '------'; }
+    tbody.innerHTML = d.reservations.map(r => {
+      const t = r.checkedInAt
+        ? new Date(r.checkedInAt).toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' })
+        : '-';
+      const actions = r.status === 'pending'
+        ? `<button class="btn btn-sm btn-outline" onclick="openReschedule('${r.code}','${r.name}','${r.date}','${r.timeSlot}')">改签</button>
+           <button class="btn btn-sm btn-outline btn-danger-outline" onclick="cancelReservation('${r.code}','${r.name}')">取消</button>`
+        : '<span style="color:var(--text-tertiary);font-size:12px;">--</span>';
+      return `<tr>
+        <td><code style="color:var(--primary);">${r.code}</code></td>
+        <td>${maskName(r.name)}</td><td>${phoneMask(r.phone)}</td><td>${r.partySize}人</td>
+        <td>${r.timeSlot}</td><td style="font-size:12px;">${r.scene || '-'}</td><td>#${r.queueNumber}</td>
+        <td>${statusMap[r.status]}</td><td>${t}</td>
+        <td>${actions}</td>
+      </tr>`;
+    }).join('');
+  } catch (e) { console.error(e); }
+}
+
+function filterList(status, el) {
+  listFilter = status;
+  document.querySelectorAll('.filter-bar button[data-status]').forEach(b => b.classList.remove('active'));
+  el?.classList.add('active');
+  loadList();
+}
+
+/* ============ 日期筛选 ============ */
+function toggleDateFilter() {
+  const row = document.getElementById('dateFilterRow');
+  row.style.display = row.style.display === 'none' ? '' : 'none';
+}
+
+function applyDateFilter() {
+  filterDate = document.getElementById('filterDate').value || today;
+  loadList();
+}
+
+function resetDateFilter() {
+  filterDate = today;
+  document.getElementById('filterDate').value = today;
+  loadList();
+}
+
+/* ============ 改签 ============ */
+function openReschedule(code, name, oldDate, oldSlot) {
+  rescheduleCode = code;
+  document.getElementById('rescheduleInfo').textContent = name + ' · 原预约：' + oldDate + ' ' + oldSlot;
+  document.getElementById('rescheduleDate').value = '';
+  document.getElementById('rescheduleSlot').innerHTML = '<option value="">请先选择日期</option>';
+  document.getElementById('rescheduleModal').style.display = '';
+  hideError('rescheduleError');
+  document.getElementById('rescheduleDate').focus();
+}
+
+function closeReschedule() {
+  rescheduleCode = null;
+  document.getElementById('rescheduleModal').style.display = 'none';
+}
+
+// 日期变化时加载新时段
+document.addEventListener('DOMContentLoaded', () => {
+  init();
+  document.getElementById('inputPhone').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doCheckinPhone();
+  });
+  document.getElementById('inputSigninCode').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doCheckinCode();
+  });
+  document.getElementById('rescheduleDate').addEventListener('change', loadRescheduleSlots);
+});
+
+async function loadRescheduleSlots() {
+  const date = document.getElementById('rescheduleDate').value;
+  const sel = document.getElementById('rescheduleSlot');
+  if (!date) { sel.innerHTML = '<option value="">请先选择日期</option>'; return; }
+
+  sel.innerHTML = '<option value="">加载中…</option>';
+  try {
+    const res = await fetch('/api/slots?date=' + date);
+    const data = await res.json();
+    sel.innerHTML = '<option value="">请选择时段</option>' +
+      data.slots.filter(s => s.available > 0).map(s => `<option value="${s.slot}">${s.slot}</option>`).join('');
+  } catch (e) {
+    sel.innerHTML = '<option value="">加载失败</option>';
+  }
+}
+
+async function doReschedule() {
+  const date = document.getElementById('rescheduleDate').value;
+  const timeSlot = document.getElementById('rescheduleSlot').value;
+  if (!date) return showError('rescheduleError', '请选择新日期');
+  if (!timeSlot) return showError('rescheduleError', '请选择新时段');
+  if (!rescheduleCode) return;
+
+  const btn = document.getElementById('btnRescheduleConfirm');
+  btn.disabled = true; btn.textContent = '改签中…';
+  hideError('rescheduleError');
+
+  try {
+    const res = await fetch('/api/admin/reservation/' + rescheduleCode, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, timeSlot })
+    });
+    const data = await res.json();
+    if (!res.ok) { showError('rescheduleError', data.error); btn.disabled = false; btn.textContent = '确认改签'; return; }
+    closeReschedule();
+    alert(data.message);
+    refreshAll();
+  } catch (e) {
+    showError('rescheduleError', '网络异常');
+  }
+  btn.disabled = false; btn.textContent = '确认改签';
+}
+
+/* ============ 取消预约 ============ */
+async function cancelReservation(code, name) {
+  if (!confirm(`确定要取消「${name}」的预约吗？\n取消后该时段将恢复可用。`)) return;
+
+  try {
+    const res = await fetch('/api/admin/reservation/' + code, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error); return; }
+    alert(data.message);
+    refreshAll();
+  } catch (e) {
+    alert('网络异常，请重试');
+  }
+}
+
+/* ============ 工具 ============ */
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function hideError(id) {
+  document.getElementById(id).classList.remove('show');
+}
+</script>
+</body>
+</html>

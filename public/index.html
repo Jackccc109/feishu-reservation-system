@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>预约签到 - 顾客端</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="app">
+  <!-- ========== 顶部 ========== -->
+  <div class="topbar">
+    <div class="topbar-brand" id="storeName">优品生活馆</div>
+    <div class="topbar-addr" id="storeAddr">北京市朝阳区建国路88号</div>
+  </div>
+
+  <div class="all-in-one">
+
+    <!-- ===== 预约表单 ===== -->
+    <section class="panel" id="panel-reserve">
+      <div class="panel-header">
+        <span class="step-badge">1</span>
+        <h2>到店预约</h2>
+        <span class="panel-sub">选择日期时段，填写信息</span>
+      </div>
+      <div class="panel-body">
+        <!-- 日期选择 -->
+        <div class="date-picker" id="datePicker"></div>
+
+        <!-- 时段选择 -->
+        <div class="slot-picker" id="slotPicker">
+          <div class="form-label">选择时段</div>
+          <select class="form-input slot-select" id="slotSelect">
+            <option value="">请先选择日期</option>
+          </select>
+        </div>
+
+        <!-- 用户信息 -->
+        <div class="user-form" id="userForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">姓名</label>
+              <input type="text" id="inputName" class="form-input" placeholder="请输入姓名" maxlength="20">
+            </div>
+            <div class="form-group">
+              <label class="form-label">手机号</label>
+              <input type="tel" id="inputPhone" class="form-input" placeholder="请输入手机号" maxlength="11">
+            </div>
+            <div class="form-group">
+              <label class="form-label">到店人数</label>
+              <select id="inputParty" class="form-input">
+                <option value="1">1人</option><option value="2" selected>2人</option>
+                <option value="3">3人</option><option value="4">4人</option>
+                <option value="5">5人</option><option value="6">6人</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:4px;">
+            <label class="form-label">您最想体验哪个场景</label>
+            <div class="scene-options">
+              <label class="scene-opt">
+                <input type="radio" name="scene" value="人车家场景">
+                <span>人车家场景</span>
+              </label>
+              <label class="scene-opt">
+                <input type="radio" name="scene" value="智家场景">
+                <span>智家场景</span>
+              </label>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-block" id="btnReserve" onclick="doReserve()">提交预约</button>
+          <div class="form-error" id="reserveError"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 预约成功 ===== -->
+    <section class="panel" id="panel-success" style="display:none;">
+      <div class="panel-header">
+        <span class="step-badge done">✓</span>
+        <h2>预约成功</h2>
+      </div>
+      <div class="panel-body">
+        <div class="success-layout">
+          <!-- 左侧：信息 -->
+          <div class="success-info">
+            <div class="info-grid info-grid-2" id="successGrid">
+              <!-- JS生成 -->
+            </div>
+
+            <div class="success-code-row">
+              <div class="success-code-label">签到验证码</div>
+              <div class="success-code" id="successSigninCode" style="color:var(--success);">------</div>
+              <button class="btn btn-sm btn-outline" onclick="copySigninCode()">复制</button>
+            </div>
+
+            <div class="success-tip" id="successTip"></div>
+          </div>
+
+          <!-- 右侧：二维码 -->
+          <div class="success-qr">
+            <div class="qr-label">出示二维码签到</div>
+            <img id="qrImage" src="" alt="签到二维码" class="qr-code">
+            <div class="qr-actions">
+              <button class="btn btn-sm btn-outline" onclick="downloadQR()">💾 保存二维码</button>
+              <button class="btn btn-sm btn-primary" onclick="shareQR()">📤 分享二维码</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="text-align:center;margin-top:20px;">
+          <button class="btn btn-outline" onclick="resetReserve()">再次预约</button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+/* ============ 全局状态 ============ */
+let currentDate = new Date().toISOString().split('T')[0];
+let selectedSlot = null;
+
+/* ============ 初始化 ============ */
+async function init() {
+  await loadSettings();
+  buildDatePicker();
+}
+
+async function loadSettings() {
+  try {
+    const res = await fetch('/api/settings');
+    const d = await res.json();
+    document.getElementById('storeName').textContent = d.storeName;
+    document.getElementById('storeAddr').textContent = d.storeAddress;
+  } catch (e) { /* ignore */ }
+}
+
+function buildDatePicker() {
+  const picker = document.getElementById('datePicker');
+  picker.innerHTML = `
+    <div class="form-label">选择日期</div>
+    <div class="calendar">
+      <div class="cal-header">
+        <button class="cal-nav" id="calPrev">&lsaquo;</button>
+        <span class="cal-title" id="calTitle"></span>
+        <button class="cal-nav" id="calNext">&rsaquo;</button>
+      </div>
+      <div class="cal-weekdays">
+        <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+  `;
+  document.getElementById('calPrev').onclick = () => changeMonth(-1);
+  document.getElementById('calNext').onclick = () => changeMonth(1);
+  renderCalendar();
+}
+
+let calYear, calMonth;
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+const maxDate = new Date(today);
+maxDate.setDate(maxDate.getDate() + 14);
+
+function changeMonth(delta) {
+  const d = new Date(calYear, calMonth + delta, 1);
+  calYear = d.getFullYear();
+  calMonth = d.getMonth();
+  renderCalendar();
+}
+
+function formatDate(y, m, d) {
+  return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+}
+
+function renderCalendar() {
+  if (calYear === undefined) {
+    calYear = today.getFullYear();
+    calMonth = today.getMonth();
+  }
+
+  document.getElementById('calTitle').textContent = calYear + '年 ' + (calMonth + 1) + '月';
+
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+
+  // Empty cells before first day
+  for (let i = 0; i < firstDay; i++) {
+    grid.appendChild(createDayCell('', 'cal-empty'));
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = formatDate(calYear, calMonth, d);
+    const cellDate = new Date(calYear, calMonth, d);
+    const cls = [];
+
+    if (cellDate < today || cellDate > maxDate) cls.push('cal-disabled');
+    if (cellDate.getTime() === today.getTime()) cls.push('cal-today');
+    if (dateStr === currentDate) cls.push('cal-active');
+
+    const cell = createDayCell(d, cls.join(' '));
+    if (!cls.includes('cal-disabled')) {
+      cell.onclick = () => selectCalendarDate(dateStr, cell);
+    }
+    grid.appendChild(cell);
+  }
+}
+
+function createDayCell(text, className) {
+  const el = document.createElement('div');
+  el.className = 'cal-day' + (className ? ' ' + className : '');
+  el.textContent = text;
+  return el;
+}
+
+async function selectCalendarDate(ds, el) {
+  currentDate = ds;
+  document.querySelectorAll('.cal-day.cal-active').forEach(e => e.classList.remove('cal-active'));
+  el.classList.add('cal-active');
+  selectedSlot = null;
+  await loadSlots();
+}
+
+async function loadSlots() {
+  const sel = document.getElementById('slotSelect');
+  sel.innerHTML = '<option value="">加载中…</option>';
+  selectedSlot = null;
+
+  try {
+    const res = await fetch('/api/slots?date=' + currentDate);
+    const data = await res.json();
+
+    sel.innerHTML = '<option value="">请选择时段</option>' +
+      data.slots
+        .filter(s => s.available > 0)
+        .map(s => `<option value="${s.slot}">${s.slot}</option>`)
+        .join('');
+
+    sel.onchange = function() {
+      selectedSlot = this.value || null;
+    };
+  } catch (e) {
+    sel.innerHTML = '<option value="">加载失败</option>';
+  }
+}
+
+/* ============ 预约提交 ============ */
+async function doReserve() {
+  if (!selectedSlot) return showError('reserveError', '请选择时段');
+  const name = document.getElementById('inputName').value.trim();
+  const phone = document.getElementById('inputPhone').value.trim();
+  const partySize = document.getElementById('inputParty').value;
+  const sceneRadio = document.querySelector('input[name="scene"]:checked');
+
+  if (!name) return showError('reserveError', '请输入姓名');
+  if (!/^1[3-9]\d{9}$/.test(phone)) return showError('reserveError', '手机号格式不正确');
+  if (!sceneRadio) return showError('reserveError', '请选择体验场景');
+
+  const scene = sceneRadio.value;
+
+  const btn = document.getElementById('btnReserve');
+  btn.disabled = true;
+  btn.textContent = '提交中…';
+  hideError('reserveError');
+
+  try {
+    const res = await fetch('/api/reserve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone, partySize: parseInt(partySize), scene, date: currentDate, timeSlot: selectedSlot })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showError('reserveError', data.error);
+      btn.disabled = false;
+      btn.textContent = '提交预约';
+      return;
+    }
+
+    showSuccess(data.reservation);
+  } catch (e) {
+    showError('reserveError', '网络异常，请重试');
+  }
+
+  btn.disabled = false;
+  btn.textContent = '提交预约';
+}
+
+function showSuccess(r) {
+  // 隐藏预约面板，显示成功面板
+  document.getElementById('panel-reserve').style.display = 'none';
+  const panel = document.getElementById('panel-success');
+  panel.style.display = '';
+  successReservation = r;
+
+  document.getElementById('successSigninCode').textContent = r.signinCode;
+
+  document.getElementById('successGrid').innerHTML = `
+    <div class="info-item"><div class="info-label">姓名</div><div class="info-value">${r.name}</div></div>
+    <div class="info-item"><div class="info-label">人数</div><div class="info-value">${r.partySize}人</div></div>
+    <div class="info-item"><div class="info-label">日期</div><div class="info-value">${r.date}</div></div>
+    <div class="info-item"><div class="info-label">时段</div><div class="info-value">${r.timeSlot}</div></div>
+  `;
+
+  document.getElementById('successTip').innerHTML = `
+    <div class="tip-title">温馨提示</div>
+    <p>您好，已经给您预约好时间，请提前5-10分钟完成签到。签到方式可以出示二维码、验证码，或者手机号后4位。如果您有别的计划，还请提前联系我们。希望您在${r.storeName}有美好的体验。</p>
+  `;
+
+  document.getElementById('qrImage').src = r.qrCode;
+
+  panel.scrollIntoView({ behavior: 'smooth' });
+
+  // 清理表单
+  document.getElementById('inputName').value = '';
+  document.getElementById('inputPhone').value = '';
+  selectedSlot = null;
+}
+
+function resetReserve() {
+  document.getElementById('panel-success').style.display = 'none';
+  document.getElementById('panel-reserve').style.display = '';
+  document.getElementById('panel-reserve').scrollIntoView({ behavior: 'smooth' });
+  loadSlots();
+}
+
+function copySigninCode() {
+  const code = document.getElementById('successSigninCode').textContent;
+  navigator.clipboard?.writeText(code);
+  const btn = event.target;
+  btn.textContent = '已复制';
+  setTimeout(() => btn.textContent = '复制', 1500);
+}
+
+/* ============ 分享二维码 ============ */
+let successReservation = null;
+
+function downloadQR() {
+  const img = document.getElementById('qrImage');
+  if (!img.src) return;
+  const a = document.createElement('a');
+  a.href = img.src;
+  a.download = `预约签到二维码_${successReservation?.code || 'unknown'}.png`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+async function shareQR() {
+  const img = document.getElementById('qrImage');
+  if (!img.src || !successReservation) return;
+
+  // 移动端：优先使用 Web Share API
+  if (navigator.share && navigator.canShare) {
+    try {
+      // 将 base64 转为 blob
+      const resp = await fetch(img.src);
+      const blob = await resp.blob();
+      const file = new File([blob], '预约二维码.png', { type: 'image/png' });
+
+      const shareData = {
+        title: `${successReservation.storeName} - 到店预约`,
+        text: `我在${successReservation.storeName}预约了${successReservation.date} ${successReservation.timeSlot}，欢迎一起来体验！`,
+        files: [file]
+      };
+
+      if (navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+        return;
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') console.log('Web Share 失败，使用卡片分享', e);
+    }
+  }
+
+  // 桌面端：弹出分享卡片
+  showShareCard();
+}
+
+function showShareCard() {
+  const r = successReservation;
+  if (!r) return;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'share-overlay';
+  overlay.id = 'shareOverlay';
+  overlay.innerHTML = `
+    <div class="share-card">
+      <div class="share-card-close" onclick="closeShareCard()">×</div>
+      <div class="share-card-title">📱 扫码预约体验</div>
+      <div class="share-card-store">${r.storeName}</div>
+      <img src="${r.qrCode}" alt="预约二维码" class="share-card-qr">
+      <div class="share-card-info">
+        <span>预约码：<strong>${r.code}</strong></span>
+        <span>${r.date} · ${r.timeSlot}</span>
+      </div>
+      <div class="share-card-tip">长按或截图保存二维码，分享给朋友</div>
+      <div class="share-card-actions">
+        <button class="btn btn-outline btn-sm" onclick="closeShareCard()">关闭</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.onclick = function(e) { if (e.target === overlay) closeShareCard(); };
+}
+
+function closeShareCard() {
+  const overlay = document.getElementById('shareOverlay');
+  if (overlay) overlay.remove();
+}
+
+/* ============ 工具 ============ */
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function hideError(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "name": "reservation-system-feishu",
+  "version": "1.0.0",
+  "description": "零售门店预约签到系统 - 飞书多维表格版",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "qrcode": "^1.5.3"
+  }
+}
