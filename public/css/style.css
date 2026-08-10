@@ -189,6 +189,36 @@ body {
 .qr-actions { display: flex; gap: 6px; margin-top: 10px; justify-content: center; }
 .qr-actions .btn { font-size: 12px; padding: 6px 12px; }
 
+/* 微信长按保存提示 */
+.qr-img-wrap { position: relative; display: inline-block; cursor: pointer; }
+.qr-longpress-hint {
+  display: none; position: absolute; bottom: 8px; left: 50%;
+  transform: translateX(-50%); background: rgba(0,0,0,0.75);
+  color: #fff; font-size: 13px; font-weight: 600;
+  padding: 6px 14px; border-radius: 20px;
+  white-space: nowrap; animation: pulse-hint 1.8s ease-in-out infinite;
+}
+@keyframes pulse-hint {
+  0%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
+  50% { opacity: 0.7; transform: translateX(-50%) scale(1.05); }
+}
+
+/* 二维码全屏弹窗 */
+.qr-fullscreen-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+  z-index: 2000; align-items: center; justify-content: center;
+}
+.qr-fullscreen-overlay.show { display: flex; }
+.qr-fullscreen-box { text-align: center; padding: 20px; }
+.qr-fullscreen-box img {
+  width: 280px; height: 280px; background: #fff;
+  border-radius: 12px; padding: 12px;
+}
+.qr-fullscreen-hint {
+  color: #fff; font-size: 15px; margin-top: 16px;
+  font-weight: 500; animation: pulse-hint 1.8s ease-in-out infinite;
+}
+
 /* 分享弹窗 */
 .share-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.45);

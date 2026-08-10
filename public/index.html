@@ -89,11 +89,22 @@
           <!-- 右侧：二维码 -->
           <div class="success-qr">
             <div class="qr-label">出示二维码签到</div>
-            <img id="qrImage" src="" alt="签到二维码" class="qr-code" crossorigin="anonymous">
-            <div class="qr-hint">微信内可长按图片保存</div>
-            <div class="qr-actions">
+            <div class="qr-img-wrap" onclick="enlargeQR()">
+              <img id="qrImage" src="" alt="签到二维码" class="qr-code">
+              <div class="qr-longpress-hint" id="qrLongpressHint">👆 长按图片保存到手机</div>
+            </div>
+            <div class="qr-actions" id="qrActions">
               <button class="btn btn-sm btn-outline" onclick="downloadQR()">保存二维码</button>
               <button class="btn btn-sm btn-primary" onclick="shareQR()">分享二维码</button>
+            </div>
+          </div>
+
+          <!-- 二维码放大弹窗 -->
+          <div class="qr-fullscreen-overlay" id="qrFullOverlay" onclick="closeEnlargeQR()">
+            <div class="qr-fullscreen-box" onclick="event.stopPropagation()">
+              <img id="qrFullImage" src="" alt="签到二维码">
+              <p class="qr-fullscreen-hint">长按二维码图片 → 保存到手机</p>
+              <button class="btn btn-outline btn-sm" onclick="closeEnlargeQR()" style="margin-top:16px;">关闭</button>
             </div>
           </div>
         </div>
@@ -313,6 +324,15 @@ function showSuccess(r) {
 
   document.getElementById('qrImage').src = r.qrCode;
 
+  // 微信环境：强化长按保存提示，隐藏无效按钮
+  if (isWechat) {
+    document.getElementById('qrLongpressHint').style.display = 'block';
+    document.getElementById('qrActions').innerHTML =
+      '<button class="btn btn-sm btn-primary" onclick="enlargeQR()">查看大图 & 长按保存</button>';
+  } else {
+    document.getElementById('qrLongpressHint').style.display = 'none';
+  }
+
   panel.scrollIntoView({ behavior: 'smooth' });
 
   // 清理表单
@@ -339,15 +359,44 @@ function copySigninCode() {
 /* ============ 分享二维码 ============ */
 let successReservation = null;
 
+const isWechat = /MicroMessenger/i.test(navigator.userAgent);
+
 function downloadQR() {
   const img = document.getElementById('qrImage');
   if (!img.src) return;
-  const a = document.createElement('a');
-  a.href = img.src;
-  a.download = `预约签到二维码_${successReservation?.code || 'unknown'}.png`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+
+  // 微信：引导长按保存
+  if (isWechat) {
+    enlargeQR();
+    return;
+  }
+
+  // 非微信：fetch → blob → 触发下载
+  fetch(img.src)
+    .then(r => r.blob())
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `预约签到二维码_${successReservation?.code || 'unknown'}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    })
+    .catch(() => {
+      // 降级：打开全屏图片
+      enlargeQR();
+    });
+}
+
+function enlargeQR() {
+  document.getElementById('qrFullImage').src = document.getElementById('qrImage').src;
+  document.getElementById('qrFullOverlay').classList.add('show');
+}
+
+function closeEnlargeQR() {
+  document.getElementById('qrFullOverlay').classList.remove('show');
 }
 
 async function shareQR() {
