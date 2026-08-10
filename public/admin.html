@@ -58,14 +58,17 @@
 
         <!-- 方式3：扫一扫 -->
         <div class="checkin-method" id="checkinScan" style="display:none;">
-          <p class="checkin-method-desc">扫描客户出示的预约二维码</p>
+          <p class="checkin-method-desc">拍照上传客户出示的预约二维码图片</p>
+          <input type="file" id="qrFileInput" accept="image/*" capture="environment"
+            style="display:none;" onchange="handleQrImage(this)">
           <button class="btn btn-scan btn-block" id="btnScan" onclick="startScanner()"
             style="padding:16px;font-size:16px;">
-            📷 打开摄像头扫码签到
+            📷 拍照识别二维码
           </button>
           <div id="scannerArea" style="display:none;">
-            <div id="scannerReader" style="width:100%;max-width:400px;margin:12px auto;"></div>
-            <button class="btn btn-outline btn-sm" onclick="stopScanner()" style="display:block;margin:8px auto;">关闭摄像头</button>
+            <p style="text-align:center;color:var(--text-secondary);margin:12px 0;">
+              📸 <span id="scanStatus">正在识别二维码…</span>
+            </p>
           </div>
           <div class="form-error" id="checkinScanError"></div>
         </div>
@@ -283,54 +286,40 @@ function showCheckinResult(success, data) {
   el.scrollIntoView({ behavior: 'smooth' });
 }
 
-/* ============ 扫码器 ============ */
-let html5QrCode = null;
+/* ============ 扫码器（拍照上传识别，无需 HTTPS） ============ */
+function startScanner() {
+  document.getElementById('qrFileInput').click();
+}
 
-async function startScanner() {
+async function handleQrImage(input) {
+  if (!input.files || input.files.length === 0) return;
+
   const area = document.getElementById('scannerArea');
-  const btn = document.getElementById('btnScan');
-
-  if (html5QrCode && html5QrCode.isScanning) return;
-
+  const status = document.getElementById('scanStatus');
   area.style.display = '';
-
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    alert('当前浏览器不支持摄像头，请使用手机浏览器');
-    area.style.display = 'none';
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = '📷 启动中…';
+  status.textContent = '正在识别二维码…';
+  document.getElementById('btnScan').disabled = true;
 
   try {
-    html5QrCode = new Html5Qrcode('scannerReader');
-    const cameras = await Html5Qrcode.getCameras();
+    const file = input.files[0];
+    // 使用 html5-qrcode 的 scanFile API 识别图片中的二维码
+    const result = await new Promise((resolve, reject) => {
+      const scanner = new Html5Qrcode('scannerArea');
+      scanner.scanFile(file, true)
+        .then(text => { scanner.clear(); resolve(text); })
+        .catch(err => { scanner.clear(); reject(err); });
+    });
 
-    if (!cameras || cameras.length === 0) {
-      alert('未检测到摄像头');
-      area.style.display = 'none';
-      btn.disabled = false;
-      btn.textContent = '📷 打开摄像头扫码签到';
-      return;
-    }
-
-    const useCameraId = cameras[cameras.length - 1].id;
-    btn.textContent = '📷 扫描中…';
-
-    await html5QrCode.start(
-      useCameraId,
-      { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
-      (decodedText) => { onScanSuccess(decodedText); },
-      () => { /* ignore */ }
-    );
+    onScanSuccess(result);
   } catch (err) {
-    console.error('扫码器启动失败:', err);
-    alert('摄像头启动失败: ' + (err.message || '请检查权限设置'));
+    console.error('二维码识别失败:', err);
+    status.textContent = '未识别到二维码，请重试';
+    document.getElementById('btnScan').disabled = false;
     area.style.display = 'none';
-    btn.disabled = false;
-    btn.textContent = '📷 打开摄像头扫码签到';
   }
+
+  // 重置 file input，允许重复选择同一张图片
+  input.value = '';
 }
 
 function onScanSuccess(decodedText) {
@@ -365,15 +354,9 @@ async function doScanCheckin(code) {
 }
 
 async function stopScanner() {
-  if (html5QrCode && html5QrCode.isScanning) {
-    try { await html5QrCode.stop(); } catch (e) { /* ignore */ }
-    html5QrCode.clear();
-  }
-  html5QrCode = null;
   document.getElementById('scannerArea').style.display = 'none';
   const btn = document.getElementById('btnScan');
   btn.disabled = false;
-  btn.textContent = '📷 打开摄像头扫码签到';
 }
 
 /* ============ 管理看板 ============ */
