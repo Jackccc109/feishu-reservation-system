@@ -109,17 +109,20 @@ app.post('/api/reserve', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: '所选时段不可用' });
   }
 
-  // 检查时段余量（这次查询结果同时传给 createReservation 避免重复查）
+  // ===== 性能优化：合并余量+查重为 1 次飞书 API 调用 =====
   const maxPerSlot = parseInt(db.getSetting('maxPerSlot')) || 1;
-  const slotCount = await db.getSlotAvailability(date, timeSlot);
+  const dayRecords = await db.getReservationsByDate(date); // 一次查所有非取消记录
+
+  // 本地计算时段余量
+  const slotCount = dayRecords.filter(r => r.timeSlot === timeSlot).length;
   if (slotCount >= maxPerSlot) {
     return res.status(400).json({ error: '该时段已约满，请选择其他时段' });
   }
 
-  // 同一手机号当天是否已预约
-  const existing = await db.findExistingPending(phone, date);
+  // 本地检查手机号是否已预约
+  const existing = dayRecords.find(r => r.phone === phone);
   if (existing) {
-    return res.status(400).json({ error: `该手机号当天已有预约（${existing.time_slot}），请勿重复预约` });
+    return res.status(400).json({ error: `该手机号当天已有预约（${existing.timeSlot}），请勿重复预约` });
   }
 
   const reservation = await db.createReservation({
@@ -129,18 +132,10 @@ app.post('/api/reserve', asyncHandler(async (req, res) => {
     date,
     timeSlot,
     scene: scene || null,
-    existingCount: slotCount  // 复用查询结果，不再重复查飞书
+    existingCount: slotCount
   });
 
   const settings = db.getSettings();
-
-  // 生成二维码（指向服务器地址）
-  const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
-  const checkinUrl = `${baseUrl}/checkin?code=${reservation.code}`;
-  const qrDataUrl = await QRCode.toDataURL(checkinUrl, {
-    width: 240, margin: 2,
-    color: { dark: '#1a1a1a', light: '#ffffff' }
-  });
 
   res.json({
     success: true,
@@ -155,11 +150,29 @@ app.post('/api/reserve', asyncHandler(async (req, res) => {
       timeSlot,
       scene: reservation.scene,
       ahead: 0,
-      qrCode: qrDataUrl,
+      // 改为 URL 而非 data URL，微信内可长按保存
+      qrCode: `/api/qrcode/${reservation.code}`,
       storeName: settings.storeName,
       storeAddress: settings.storeAddress
     }
   });
+}));
+
+// 二维码图片接口（返回真实 PNG，微信内可长按保存）
+app.get('/api/qrcode/:code', asyncHandler(async (req, res) => {
+  const code = req.params.code.toUpperCase();
+  const r = await db.getReservationByCode(code);
+  if (!r) return res.status(404).end();
+
+  const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+  const checkinUrl = `${baseUrl}/checkin?code=${code}`;
+  const pngBuffer = await QRCode.toBuffer(checkinUrl, {
+    width: 240, margin: 2,
+    color: { dark: '#1a1a1a', light: '#ffffff' }
+  });
+  res.setHeader('Content-Type', 'image/png');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.send(pngBuffer);
 }));
 
 // 按预约码查询

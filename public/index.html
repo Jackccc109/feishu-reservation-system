@@ -89,10 +89,11 @@
           <!-- 右侧：二维码 -->
           <div class="success-qr">
             <div class="qr-label">出示二维码签到</div>
-            <img id="qrImage" src="" alt="签到二维码" class="qr-code">
+            <img id="qrImage" src="" alt="签到二维码" class="qr-code" crossorigin="anonymous">
+            <div class="qr-hint">微信内可长按图片保存</div>
             <div class="qr-actions">
-              <button class="btn btn-sm btn-outline" onclick="downloadQR()">💾 保存二维码</button>
-              <button class="btn btn-sm btn-primary" onclick="shareQR()">📤 分享二维码</button>
+              <button class="btn btn-sm btn-outline" onclick="downloadQR()">保存二维码</button>
+              <button class="btn btn-sm btn-primary" onclick="shareQR()">分享二维码</button>
             </div>
           </div>
         </div>
