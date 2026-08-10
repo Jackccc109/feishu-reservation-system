@@ -65,7 +65,7 @@ app.get('/api/settings', (req, res) => {
   });
 });
 
-// 获取某天的时段余量
+// 获取某天的时段余量（一次查全部，本地分组，快）
 app.get('/api/slots', asyncHandler(async (req, res) => {
   const { date } = req.query;
   if (!date) return res.status(400).json({ error: '日期不能为空' });
@@ -73,12 +73,21 @@ app.get('/api/slots', asyncHandler(async (req, res) => {
   const timeSlots = getTimeSlotsForDate();
   const maxPerSlot = parseInt(db.getSetting('maxPerSlot')) || 1;
 
-  // 批量查询所有时段的余量
-  const slots = [];
-  for (const slot of timeSlots) {
-    const current = await db.getSlotAvailability(date, slot);
-    slots.push({ slot, max: maxPerSlot, current, available: Math.max(0, maxPerSlot - current) });
+  // 一次性获取当日所有非已取消记录，本地统计各时段
+  const allRecords = await db.getReservationsByDate(date);
+  const countBySlot = {};
+  for (const r of allRecords) {
+    if (r.status !== 'cancelled') {
+      countBySlot[r.timeSlot] = (countBySlot[r.timeSlot] || 0) + 1;
+    }
   }
+
+  const slots = timeSlots.map(slot => ({
+    slot,
+    max: maxPerSlot,
+    current: countBySlot[slot] || 0,
+    available: Math.max(0, maxPerSlot - (countBySlot[slot] || 0))
+  }));
 
   res.json({ date, slots });
 }));
