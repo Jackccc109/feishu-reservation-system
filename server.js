@@ -349,7 +349,7 @@ app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'adm
 app.get('/checkin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
 // ============ 启动服务 ============
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log('');
   console.log('  ========================================');
   console.log('   预约签到系统已启动（飞书多维表格版）');
