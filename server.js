@@ -90,7 +90,7 @@ app.post('/api/reserve', asyncHandler(async (req, res) => {
   if (!name || !name.trim()) return res.status(400).json({ error: '请输入姓名' });
   if (!phone || !phone.trim()) return res.status(400).json({ error: '请输入手机号' });
   if (!/^1[3-9]\d{9}$/.test(phone)) return res.status(400).json({ error: '手机号格式不正确' });
-  if (!partySize || partySize < 1) return res.status(400).json({ error: '请填写到店人数' });
+  if (!partySize || partySize < 1) return res.status(400).json({ error: '请填写体验人数' });
   if (!date) return res.status(400).json({ error: '请选择预约日期' });
   if (!timeSlot) return res.status(400).json({ error: '请选择预约时段' });
 

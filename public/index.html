@@ -47,25 +47,14 @@
               <input type="tel" id="inputPhone" class="form-input" placeholder="请输入手机号" maxlength="11">
             </div>
             <div class="form-group">
-              <label class="form-label">到店人数</label>
-              <select id="inputParty" class="form-input">
+              <label class="form-label">体验人数</label>
+              <select id="inputParty" class="form-input" onchange="togglePartyOther()">
                 <option value="1">1人</option><option value="2" selected>2人</option>
                 <option value="3">3人</option><option value="4">4人</option>
                 <option value="5">5人</option><option value="6">6人</option>
+                <option value="other">其他</option>
               </select>
-            </div>
-          </div>
-          <div class="form-group" style="margin-top:4px;">
-            <label class="form-label">您最想体验哪个场景</label>
-            <div class="scene-options">
-              <label class="scene-opt">
-                <input type="radio" name="scene" value="人车家场景">
-                <span>人车家场景</span>
-              </label>
-              <label class="scene-opt">
-                <input type="radio" name="scene" value="智家场景">
-                <span>智家场景</span>
-              </label>
+              <input type="number" id="inputPartyOther" class="form-input" placeholder="请填写人数" min="1" max="99" style="display:none;margin-top:6px;">
             </div>
           </div>
           <button class="btn btn-primary btn-block" id="btnReserve" onclick="doReserve()">提交预约</button>
@@ -236,8 +225,10 @@ async function loadSlots() {
 
     sel.innerHTML = '<option value="">请选择时段</option>' +
       data.slots
-        .filter(s => s.available > 0)
-        .map(s => `<option value="${s.slot}">${s.slot}</option>`)
+        .map(s => {
+          if (s.available > 0) return `<option value="${s.slot}">${s.slot}（余${s.available}位）</option>`;
+          return `<option disabled style="color:#ccc;">${s.slot}（已约满）</option>`;
+        })
         .join('');
 
     sel.onchange = function() {
@@ -248,19 +239,26 @@ async function loadSlots() {
   }
 }
 
+function togglePartyOther() {
+  const sel = document.getElementById('inputParty');
+  const other = document.getElementById('inputPartyOther');
+  other.style.display = sel.value === 'other' ? '' : 'none';
+}
+
 /* ============ 预约提交 ============ */
 async function doReserve() {
   if (!selectedSlot) return showError('reserveError', '请选择时段');
   const name = document.getElementById('inputName').value.trim();
   const phone = document.getElementById('inputPhone').value.trim();
-  const partySize = document.getElementById('inputParty').value;
-  const sceneRadio = document.querySelector('input[name="scene"]:checked');
-
+  let partySize = document.getElementById('inputParty').value;
+  if (partySize === 'other') {
+    partySize = parseInt(document.getElementById('inputPartyOther').value) || 0;
+    if (partySize < 1) return showError('reserveError', '请填写正确的体验人数');
+  } else {
+    partySize = parseInt(partySize);
+  }
   if (!name) return showError('reserveError', '请输入姓名');
   if (!/^1[3-9]\d{9}$/.test(phone)) return showError('reserveError', '手机号格式不正确');
-  if (!sceneRadio) return showError('reserveError', '请选择体验场景');
-
-  const scene = sceneRadio.value;
 
   const btn = document.getElementById('btnReserve');
   btn.disabled = true;
@@ -271,7 +269,7 @@ async function doReserve() {
     const res = await fetch('/api/reserve', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, phone, partySize: parseInt(partySize), scene, date: currentDate, timeSlot: selectedSlot })
+      body: JSON.stringify({ name, phone, partySize, date: currentDate, timeSlot: selectedSlot })
     });
     const data = await res.json();
 
