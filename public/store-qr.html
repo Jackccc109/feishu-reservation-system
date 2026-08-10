@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>门店二维码 - 武汉光谷旗舰店</title>
+  <style>
+    @media print {
+      body { background: #fff; }
+      .no-print { display: none !important; }
+      .qr-card { break-inside: avoid; box-shadow: none !important; border: 2px dashed #ccc !important; }
+      @page { margin: 10mm; size: A4; }
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      min-height: 100vh;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #fff;
+      padding: 24px 20px;
+      text-align: center;
+    }
+    .header h1 { font-size: 22px; font-weight: 600; }
+    .header .store-name { font-size: 14px; opacity: 0.8; margin-top: 4px; }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 32px 20px;
+    }
+
+    .intro {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .intro h2 { font-size: 18px; margin-bottom: 8px; }
+    .intro p { color: #666; font-size: 14px; line-height: 1.6; }
+
+    .qr-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 640px) {
+      .qr-grid { grid-template-columns: 1fr; }
+    }
+
+    .qr-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 28px 24px;
+      text-align: center;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+      transition: transform 0.2s;
+    }
+    .qr-card:hover { transform: translateY(-2px); }
+
+    .qr-card .icon {
+      font-size: 40px;
+      margin-bottom: 8px;
+    }
+    .qr-card .title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .qr-card .subtitle {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 16px;
+    }
+
+    .qr-card .qr-wrapper {
+      display: inline-block;
+      background: #fff;
+      border: 2px solid #e8e8e8;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .qr-card .qr-wrapper img {
+      width: 200px;
+      height: 200px;
+      display: block;
+    }
+
+    .qr-card .url-text {
+      font-size: 11px;
+      color: #999;
+      word-break: break-all;
+      padding: 8px 12px;
+      background: #f8f8f8;
+      border-radius: 6px;
+      display: inline-block;
+      max-width: 100%;
+    }
+
+    .qr-card.reserve .title { color: #1890ff; }
+    .qr-card.checkin .title { color: #52c41a; }
+
+    .actions {
+      text-align: center;
+    }
+    .btn {
+      display: inline-block;
+      padding: 10px 28px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      text-decoration: none;
+      margin: 0 6px;
+    }
+    .btn-primary {
+      background: #1890ff;
+      color: #fff;
+    }
+    .btn-primary:hover { background: #1677cc; }
+    .btn-outline {
+      background: #fff;
+      color: #333;
+      border: 1px solid #d9d9d9;
+    }
+    .btn-outline:hover { border-color: #1890ff; color: #1890ff; }
+
+    .print-tip {
+      text-align: center;
+      color: #999;
+      font-size: 13px;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>门店二维码</h1>
+    <div class="store-name">武汉光谷旗舰店</div>
+  </div>
+
+  <div class="container">
+
+    <div class="intro">
+      <h2>扫码即用</h2>
+      <p>将以下两个二维码打印并张贴在门店，顾客扫码即可预约和签到</p>
+    </div>
+
+    <!-- 预约码 -->
+    <div class="qr-grid">
+      <div class="qr-card reserve">
+        <div class="icon">📅</div>
+        <div class="title">预约码</div>
+        <div class="subtitle">顾客扫码预约到店</div>
+        <div class="qr-wrapper">
+          <img id="qrReserve" src="" alt="预约码">
+        </div>
+        <div class="url-text" id="urlReserve"></div>
+      </div>
+
+      <!-- 签到码 -->
+      <div class="qr-card checkin">
+        <div class="icon">✅</div>
+        <div class="title">签到码</div>
+        <div class="subtitle">顾客到店扫码签到</div>
+        <div class="qr-wrapper">
+          <img id="qrCheckin" src="" alt="签到码">
+        </div>
+        <div class="url-text" id="urlCheckin"></div>
+      </div>
+    </div>
+
+    <div class="actions no-print">
+      <button class="btn btn-primary" onclick="window.print()">打印二维码</button>
+      <button class="btn btn-outline" onclick="downloadQR('reserve')">下载预约码</button>
+      <button class="btn btn-outline" onclick="downloadQR('checkin')">下载签到码</button>
+    </div>
+
+    <div class="print-tip no-print">点击「打印二维码」可直接打印 A4 纸，推荐彩色打印后裁剪张贴</div>
+
+  </div>
+
+  <script>
+  /* ============ 加载二维码 ============ */
+  async function init() {
+    try {
+      const res = await fetch('/api/store-qr');
+      const data = await res.json();
+
+      document.getElementById('qrReserve').src = data.reserve;
+      document.getElementById('qrCheckin').src = data.checkin;
+
+      document.getElementById('urlReserve').textContent = window.location.origin + '/';
+      document.getElementById('urlCheckin').textContent = window.location.origin + '/checkin';
+
+      window._qrData = data;
+    } catch (e) {
+      document.querySelectorAll('.qr-wrapper img').forEach(img => {
+        img.alt = '加载失败，请刷新重试';
+      });
+    }
+  }
+
+  /* ============ 下载二维码 ============ */
+  function downloadQR(type) {
+    const data = window._qrData;
+    if (!data) return;
+
+    const imgData = type === 'reserve' ? data.reserve : data.checkin;
+    const name = type === 'reserve' ? '门店预约码' : '门店签到码';
+
+    const a = document.createElement('a');
+    a.href = imgData;
+    a.download = `${name}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

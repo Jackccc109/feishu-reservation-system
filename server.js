@@ -344,19 +344,51 @@ app.put('/api/admin/reservation/:code', asyncHandler(async (req, res) => {
   res.json({ success: true, message: '改签成功', reservation: { date, timeSlot, name: r.name } });
 }));
 
+// ============ 门店固定二维码（预约码 + 签到码） ============
+let storeQRCodes = { reserve: '', checkin: '' };
+
+async function generateStoreQRCodes() {
+  const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+  const reserveUrl = `${baseUrl}/`;
+  const checkinUrl = `${baseUrl}/checkin`;
+
+  storeQRCodes.reserve = await QRCode.toDataURL(reserveUrl, {
+    width: 320, margin: 2,
+    color: { dark: '#1a1a1a', light: '#ffffff' }
+  });
+
+  storeQRCodes.checkin = await QRCode.toDataURL(checkinUrl, {
+    width: 320, margin: 2,
+    color: { dark: '#1a1a1a', light: '#ffffff' }
+  });
+}
+
+app.get('/api/store-qr', (req, res) => {
+  res.json(storeQRCodes);
+});
+
+app.get('/store-qr', (req, res) => res.sendFile(path.join(__dirname, 'public', 'store-qr.html')));
+
 // ============ 页面路由 ============
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/checkin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
 // ============ 启动服务 ============
-app.listen(PORT, '0.0.0.0', () => {
-  console.log('');
-  console.log('  ========================================');
-  console.log('   预约签到系统已启动（飞书多维表格版）');
-  console.log('  ========================================');
-  console.log('');
-  console.log('   预约页面:   http://localhost:' + PORT);
-  console.log('   签到页面:   http://localhost:' + PORT + '/checkin');
-  console.log('   管理后台:   http://localhost:' + PORT + '/admin');
-  console.log('');
-});
+async function startServer() {
+  await generateStoreQRCodes();
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log('');
+    console.log('  ========================================');
+    console.log('   预约签到系统已启动（飞书多维表格版）');
+    console.log('  ========================================');
+    console.log('');
+    console.log('   预约页面:   http://localhost:' + PORT);
+    console.log('   签到页面:   http://localhost:' + PORT + '/checkin');
+    console.log('   管理后台:   http://localhost:' + PORT + '/admin');
+    console.log('   门店二维码: http://localhost:' + PORT + '/store-qr');
+    console.log('');
+  });
+}
+
+startServer();
