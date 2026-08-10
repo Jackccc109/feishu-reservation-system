@@ -237,19 +237,11 @@ function contains(fieldCn, value) {
 // 以下函数与原 db.js 接口完全一致，方便 server.js 无缝切换
 // ====================================================================
 
-// 生成唯一码（6位 hex）
-function genCode() {
-  return crypto.randomBytes(3).toString('hex').toUpperCase();
-}
-
-async function genUniqueCode(fieldCn, maxRetries = 20) {
-  for (let i = 0; i < maxRetries; i++) {
-    const code = genCode();
-    const filter = eq(fieldCn, code);
-    const result = await listRecords(filter, null, 1);
-    if (result.records.length === 0) return code;
-  }
-  throw new Error('生成唯一码失败，已达最大重试次数');
+// 生成唯一码（8位 hex + 时间戳前缀，无需查飞书）
+function genUniqueCode() {
+  const ts = Date.now().toString(36).slice(-4).toUpperCase();
+  const rand = crypto.randomBytes(3).toString('hex').toUpperCase();
+  return ts + rand;
 }
 
 // ===== 设置（改用环境变量 + 飞书 Base 第一行的 settings） =====
@@ -272,18 +264,23 @@ function setSetting(key, value) {
 }
 
 // ===== 创建预约 =====
-async function createReservation({ name, phone, partySize, date, timeSlot, scene }) {
-  const code = await genUniqueCode(FIELDS.code);
-  const signinCode = await genUniqueCode(FIELDS.signinCode);
+// existingCount: 外部已查好的同日同时段非取消记录数，避免重复 API 调用
+async function createReservation({ name, phone, partySize, date, timeSlot, scene, existingCount }) {
+  const code = genUniqueCode();
+  const signinCode = genUniqueCode();
 
-  // 计算排队号：同日期+同时段 "待签到"+"已签到" 数量
-  const filter = buildFilter([
-    eq(FIELDS.date, date),
-    eq(FIELDS.timeSlot, timeSlot),
-    neq(FIELDS.status, '已取消')
-  ]);
-  const existing = await listAllRecords(filter);
-  const queueNumber = existing.length + 1;
+  let queueNumber;
+  if (existingCount !== undefined) {
+    queueNumber = existingCount + 1;
+  } else {
+    const filter = buildFilter([
+      eq(FIELDS.date, date),
+      eq(FIELDS.timeSlot, timeSlot),
+      neq(FIELDS.status, '已取消')
+    ]);
+    const existing = await listAllRecords(filter);
+    queueNumber = existing.length + 1;
+  }
 
   const now = new Date().toISOString();
 

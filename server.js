@@ -109,7 +109,7 @@ app.post('/api/reserve', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: '所选时段不可用' });
   }
 
-  // 检查时段余量
+  // 检查时段余量（这次查询结果同时传给 createReservation 避免重复查）
   const maxPerSlot = parseInt(db.getSetting('maxPerSlot')) || 1;
   const slotCount = await db.getSlotAvailability(date, timeSlot);
   if (slotCount >= maxPerSlot) {
@@ -128,7 +128,8 @@ app.post('/api/reserve', asyncHandler(async (req, res) => {
     partySize: parseInt(partySize),
     date,
     timeSlot,
-    scene: scene || null
+    scene: scene || null,
+    existingCount: slotCount  // 复用查询结果，不再重复查飞书
   });
 
   const settings = db.getSettings();
