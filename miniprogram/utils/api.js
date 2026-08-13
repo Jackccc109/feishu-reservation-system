@@ -1,6 +1,13 @@
 // utils/api.js —— 封装对 ECS 上 Node.js 后端的请求
-const app = getApp();
-const BASE_URL = (app && app.globalData && app.globalData.BASE_URL) || 'http://118.178.252.29:3000';
+function getBaseUrl() {
+  try {
+    const app = getApp();
+    return (app && app.globalData && app.globalData.BASE_URL) || 'http://118.178.252.29:3000';
+  } catch (e) {
+    return 'http://118.178.252.29:3000';
+  }
+}
+const BASE_URL = getBaseUrl();
 
 function request(path, method, data) {
   return new Promise((resolve, reject) => {
