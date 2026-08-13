@@ -38,6 +38,8 @@ const FIELDS = {
   status:       '状态',          // 文本 (待签到/已签到/已取消)
   createdAt:    '创建时间',      // 文本 (ISO)
   checkedInAt:  '签到时间',      // 文本 (ISO 或空)
+  nickname:     '微信昵称',      // 文本
+  openid:       'openid',         // 文本
 };
 
 // ===== Token 管理 =====
@@ -116,6 +118,8 @@ function recordToInternal(record) {
     signinCode: (f[FIELDS.signinCode] || '').toString(),
     name:       f[FIELDS.name] || '',
     phone:      f[FIELDS.phone] || '',
+    nickname:   f[FIELDS.nickname] || '',
+    openid:     f[FIELDS.openid] || '',
     partySize:  parseInt(f[FIELDS.partySize]) || 1,
     party_size: parseInt(f[FIELDS.partySize]) || 1,
     date:       f[FIELDS.date] || '',
@@ -214,6 +218,29 @@ async function deleteRecord(recordId) {
   );
 }
 
+// ===== 确保飞书表格包含所需字段（幂等，启动时可调用） =====
+async function ensureFields() {
+  const needed = [
+    { name: FIELDS.nickname, type: 1 },  // 文本
+    { name: FIELDS.openid, type: 1 }     // 文本
+  ];
+  try {
+    const data = await apiRequest('GET', `/apps/${APP_TOKEN}/tables/${TABLE_ID}/fields?page_size=200`);
+    const existing = (data.items || []).map(f => f.field_name);
+    for (const f of needed) {
+      if (!existing.includes(f.name)) {
+        await apiRequest('POST', `/apps/${APP_TOKEN}/tables/${TABLE_ID}/fields`, {
+          field_name: f.name,
+          type: f.type
+        });
+        console.log('  + 新增飞书字段:', f.name);
+      }
+    }
+  } catch (e) {
+    console.warn('  [warn] 检查/新增飞书字段失败（不影响主流程）:', e.message);
+  }
+}
+
 // ===== 飞书 filter 表达式构建 =====
 function buildFilter(conditions) {
   if (!conditions || conditions.length === 0) return null;
@@ -265,7 +292,7 @@ function setSetting(key, value) {
 
 // ===== 创建预约 =====
 // existingCount: 外部已查好的同日同时段非取消记录数，避免重复 API 调用
-async function createReservation({ name, phone, partySize, date, timeSlot, scene, existingCount }) {
+async function createReservation({ name, phone, partySize, date, timeSlot, scene, existingCount, nickname, openid }) {
   const code = genUniqueCode();
   const signinCode = genUniqueCode();
 
@@ -289,6 +316,8 @@ async function createReservation({ name, phone, partySize, date, timeSlot, scene
     [FIELDS.signinCode]: signinCode,
     [FIELDS.name]: name,
     [FIELDS.phone]: phone,
+    [FIELDS.nickname]: nickname || '',
+    [FIELDS.openid]: openid || '',
     [FIELDS.partySize]: partySize,
     [FIELDS.date]: date,
     [FIELDS.timeSlot]: timeSlot,
@@ -495,5 +524,7 @@ module.exports = {
   checkinBySigninCode,
   // 统计 & 搜索
   getStats,
-  searchReservations
+  searchReservations,
+  // 字段初始化
+  ensureFields
 };

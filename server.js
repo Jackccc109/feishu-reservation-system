@@ -20,6 +20,24 @@ db.init({
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ============ 微信小程序配置 & 工具 ============
+const WECHAT_APP_ID = process.env.WECHAT_APP_ID || 'wx35b058f285db65a2';
+const WECHAT_APP_SECRET = process.env.WECHAT_APP_SECRET || '';
+let wxAccessToken = '';
+let wxTokenExpire = 0;
+
+async function getWxAccessToken() {
+  if (wxAccessToken && Date.now() < wxTokenExpire - 60000) return wxAccessToken;
+  if (!WECHAT_APP_SECRET) throw new Error('未配置 WECHAT_APP_SECRET，无法获取微信 access_token');
+  const url = `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${WECHAT_APP_ID}&secret=${WECHAT_APP_SECRET}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  if (data.errcode) throw new Error('获取微信 access_token 失败: ' + (data.errmsg || data.errcode));
+  wxAccessToken = data.access_token;
+  wxTokenExpire = Date.now() + (data.expires_in || 7200) * 1000;
+  return wxAccessToken;
+}
+
 // ============ 工具函数 ============
 function maskPhone(phone) {
   return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
@@ -94,7 +112,7 @@ app.get('/api/slots', asyncHandler(async (req, res) => {
 
 // 创建预约
 app.post('/api/reserve', asyncHandler(async (req, res) => {
-  const { name, phone, partySize, date, timeSlot, scene } = req.body;
+  const { name, phone, partySize, date, timeSlot, scene, nickname, openid } = req.body;
 
   if (!name || !name.trim()) return res.status(400).json({ error: '请输入姓名' });
   if (!phone || !phone.trim()) return res.status(400).json({ error: '请输入手机号' });
@@ -132,6 +150,8 @@ app.post('/api/reserve', asyncHandler(async (req, res) => {
     date,
     timeSlot,
     scene: scene || null,
+    nickname: nickname || null,
+    openid: openid || null,
     existingCount: slotCount
   });
 
@@ -156,6 +176,35 @@ app.post('/api/reserve', asyncHandler(async (req, res) => {
       storeAddress: settings.storeAddress
     }
   });
+}));
+
+// ============ 微信小程序：登录 & 手机号 ============
+// wx.login 返回的 code → openid（用于写入飞书，识别顾客）
+app.post('/api/wx/login', asyncHandler(async (req, res) => {
+  const { code } = req.body;
+  if (!code) return res.status(400).json({ error: '缺少 login code' });
+  if (!WECHAT_APP_SECRET) return res.status(500).json({ error: '服务端未配置微信 AppSecret' });
+
+  const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${WECHAT_APP_ID}&secret=${WECHAT_APP_SECRET}&js_code=${code}&grant_type=authorization_code`;
+  const r = await fetch(url);
+  const data = await r.json();
+  if (data.errcode) return res.status(400).json({ error: '微信登录失败: ' + (data.errmsg || data.errcode) });
+  res.json({ openid: data.openid });
+}));
+
+// 手机号快速验证：button open-type=getPhoneNumber 返回的 code → 明文手机号
+app.post('/api/wx/phone', asyncHandler(async (req, res) => {
+  const { code } = req.body;
+  if (!code) return res.status(400).json({ error: '缺少手机号 code' });
+  const token = await getWxAccessToken();
+  const apiRes = await fetch('https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token=' + token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code })
+  });
+  const data = await apiRes.json();
+  if (data.errcode) return res.status(400).json({ error: '获取手机号失败: ' + (data.errmsg || data.errcode) });
+  res.json({ phone: data.phone_info.phoneNumber });
 }));
 
 // 二维码图片接口（返回真实 PNG，微信内可长按保存）
@@ -399,6 +448,13 @@ app.get('/checkin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'a
 
 // ============ 启动服务 ============
 async function startServer() {
+  // 启动检查并自动创建飞书新字段（微信昵称 / openid）
+  try {
+    await db.ensureFields();
+  } catch (e) {
+    console.warn('[warn] 飞书字段检查失败:', e.message);
+  }
+
   await generateStoreQRCodes();
 
   app.listen(PORT, '0.0.0.0', () => {

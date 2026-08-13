@@ -1,1 +1,46 @@
-/* pages/reserve/reserve.wxss  —— 复用 app.wxss 全局样式 */
+/* pages/reserve/reserve.wxss */
+
+/* 微信资料区 */
+.wx-profile {
+  display: flex;
+  align-items: center;
+  padding: 12rpx 0 20rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+  margin-bottom: 16rpx;
+}
+.avatar-btn {
+  width: 96rpx;
+  height: 96rpx;
+  padding: 0;
+  margin: 0 20rpx 0 0;
+  border-radius: 50%;
+  background: #f2f3f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  line-height: normal;
+}
+.avatar-btn::after { border: none; }
+.avatar-img { width: 96rpx; height: 96rpx; border-radius: 50%; }
+.avatar-placeholder { font-size: 24rpx; color: #999; }
+.nickname-input {
+  flex: 1;
+  height: 72rpx;
+  background: #f7f8fa;
+  border-radius: 12rpx;
+  padding: 0 20rpx;
+  font-size: 28rpx;
+}
+
+/* 手机号 + 微信获取按钮 */
+.wx-phone-btn {
+  margin: 12rpx 0 0;
+  font-size: 24rpx;
+  color: #07c160;
+  background: #e8f8ef;
+  border-radius: 10rpx;
+  padding: 8rpx 0;
+  line-height: 1.6;
+}
+.wx-phone-btn::after { border: none; }

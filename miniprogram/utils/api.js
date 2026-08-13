@@ -45,5 +45,9 @@ module.exports = {
   // 管理统计
   getAdminStats: (date) => request('/api/admin/stats?date=' + encodeURIComponent(date)),
   // 管理预约列表
-  getAdminReservations: (query) => request('/api/admin/reservations?' + query)
+  getAdminReservations: (query) => request('/api/admin/reservations?' + query),
+  // 微信登录：wx.login 的 code → openid
+  wxLogin: (code) => request('/api/wx/login', 'POST', { code }),
+  // 微信手机号：getPhoneNumber 的 code → 明文手机号
+  wxPhone: (code) => request('/api/wx/phone', 'POST', { code })
 };
