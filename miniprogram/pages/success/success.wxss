@@ -1,0 +1,31 @@
+/* pages/success/success.wxss */
+.success-card {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 48rpx 32rpx;
+  margin-top: 40rpx;
+  text-align: center;
+  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.06);
+}
+.success-icon {
+  width: 96rpx; height: 96rpx; line-height: 96rpx;
+  border-radius: 50%; background: #07c160; color: #fff;
+  font-size: 56rpx; margin: 0 auto 16rpx;
+}
+.success-title { font-size: 38rpx; font-weight: 700; margin-bottom: 32rpx; }
+.info-row { display: flex; justify-content: space-between; padding: 16rpx 8rpx; border-bottom: 1rpx solid #f0f0f0; }
+.info-label { color: #999; font-size: 28rpx; }
+.info-value { color: #333; font-size: 30rpx; font-weight: 500; }
+.info-value.highlight { color: #07c160; font-weight: 700; }
+.qr-section { margin: 40rpx 0 24rpx; }
+.qr-tip { display: block; font-size: 26rpx; color: #666; margin-bottom: 20rpx; }
+.qr-img { width: 360rpx; height: 360rpx; background: #fff; border: 2rpx solid #eee; border-radius: 12rpx; }
+.tip-box {
+  background: #f8fafc; border: 1rpx solid #eee; border-radius: 12rpx;
+  padding: 24rpx; margin: 24rpx 0; text-align: left;
+}
+.tip-box text { font-size: 24rpx; color: #666; line-height: 1.8; }
+.home-btn {
+  background: #07c160; color: #fff; border-radius: 12rpx;
+  font-size: 30rpx; margin-top: 16rpx;
+}

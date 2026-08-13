@@ -1,0 +1,17 @@
+{
+  "description": "门店预约签到小程序（飞书多维表格后端）",
+  "packOptions": { "ignore": [] },
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "newFeature": true
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.0.0",
+  "appid": "touristappid",
+  "projectname": "feishu-reservation-miniprogram",
+  "condition": {}
+}

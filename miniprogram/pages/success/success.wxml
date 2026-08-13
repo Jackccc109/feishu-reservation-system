@@ -1,0 +1,37 @@
+<!-- pages/success/success.wxml -->
+<view class="container">
+  <view class="success-card">
+    <view class="success-icon">✓</view>
+    <view class="success-title">预约成功</view>
+
+    <view class="info-row" wx:if="{{reservation}}">
+      <text class="info-label">姓名</text><text class="info-value">{{reservation.name}}</text>
+    </view>
+    <view class="info-row" wx:if="{{reservation}}">
+      <text class="info-label">体验人数</text><text class="info-value">{{reservation.partySize}}人</text>
+    </view>
+    <view class="info-row" wx:if="{{reservation}}">
+      <text class="info-label">日期</text><text class="info-value">{{reservation.date}}</text>
+    </view>
+    <view class="info-row" wx:if="{{reservation}}">
+      <text class="info-label">时段</text><text class="info-value">{{reservation.timeSlot}}</text>
+    </view>
+    <view class="info-row" wx:if="{{reservation}}">
+      <text class="info-label">排队号</text><text class="info-value highlight">{{reservation.queueNumber}}</text>
+    </view>
+    <view class="info-row" wx:if="{{reservation}}">
+      <text class="info-label">签到码</text><text class="info-value highlight">{{reservation.signinCode}}</text>
+    </view>
+
+    <view class="qr-section" wx:if="{{qrUrl}}">
+      <text class="qr-tip">出示二维码签到（长按可保存）</text>
+      <image class="qr-img" src="{{qrUrl}}" mode="aspectFit" show-menu-by-longpress="{{true}}"></image>
+    </view>
+
+    <view class="tip-box">
+      <text>温馨提示：请提前5-10分钟完成签到。可凭二维码、签到码或手机号后4位任一方式签到。期待您在{{reservation.storeName}}的体验。</text>
+    </view>
+
+    <button class="home-btn" bindtap="backHome">返回首页</button>
+  </view>
+</view>

@@ -1,0 +1,49 @@
+<!-- pages/reserve/reserve.wxml -->
+<view class="container">
+  <view class="header">
+    <view class="store-name">{{storeName}}</view>
+    <view class="store-addr" wx:if="{{storeAddress}}">{{storeAddress}}</view>
+  </view>
+
+  <view class="card">
+    <view class="form-group">
+      <text class="label">姓名</text>
+      <input class="input" placeholder="请输入姓名" value="{{name}}" bindinput="onName" />
+    </view>
+
+    <view class="form-group">
+      <text class="label">手机号</text>
+      <input class="input" type="number" placeholder="请输入手机号" value="{{phone}}" bindinput="onPhone" maxlength="11" />
+    </view>
+
+    <view class="form-group">
+      <text class="label">体验人数</text>
+      <picker mode="selector" range="{{partyOptions}}" value="{{partyIndex}}" bindchange="onParty">
+        <view class="picker">{{partyOptions[partyIndex]}}</view>
+      </picker>
+    </view>
+
+    <view class="form-group" wx:if="{{partyIndex === partyOptions.length - 1}}">
+      <text class="label">自定义人数</text>
+      <input class="input" type="number" placeholder="请输入人数" value="{{customParty}}" bindinput="onCustomParty" />
+    </view>
+
+    <view class="form-group">
+      <text class="label">日期</text>
+      <picker mode="date" value="{{date}}" bindchange="onDate">
+        <view class="picker">{{date}}</view>
+      </picker>
+    </view>
+
+    <view class="form-group">
+      <text class="label">时段</text>
+      <picker mode="selector" range="{{slotLabels}}" value="{{slotIndex}}" bindchange="onSlot">
+        <view class="picker">{{slotLabels[slotIndex] || '请选择时段'}}</view>
+      </picker>
+    </view>
+
+    <view wx:if="{{slotError}}" class="error">{{slotError}}</view>
+  </view>
+
+  <button class="submit-btn" bindtap="onSubmit" loading="{{submitting}}">提交预约</button>
+</view>

@@ -190,6 +190,7 @@ app.get('/api/reservation/:code', asyncHandler(async (req, res) => {
     timeSlot: r.time_slot,
     scene: r.scene,
     queueNumber: r.queue_number,
+    signinCode: r.signinCode,
     status: r.status,
     checkedInAt: r.checked_in_at,
     storeName: settings.storeName

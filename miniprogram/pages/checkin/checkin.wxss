@@ -1,0 +1,24 @@
+/* pages/checkin/checkin.wxss */
+.tabs { display: flex; border-bottom: 1rpx solid #eee; margin-bottom: 32rpx; }
+.tab {
+  flex: 1; text-align: center; padding: 20rpx 0;
+  font-size: 28rpx; color: #999; position: relative;
+}
+.tab.active { color: #07c160; font-weight: 600; }
+.tab.active::after {
+  content: ''; position: absolute; left: 50%; bottom: 0;
+  transform: translateX(-50%); width: 48rpx; height: 4rpx; background: #07c160; border-radius: 2rpx;
+}
+.scan-box { text-align: center; padding: 32rpx 0; }
+.scan-btn {
+  background: #07c160; color: #fff; border-radius: 12rpx;
+  font-size: 32rpx; padding: 20rpx 0;
+}
+.scan-hint { display: block; font-size: 24rpx; color: #999; margin-top: 16rpx; }
+.result-box {
+  margin-top: 32rpx; padding: 28rpx; border-radius: 12rpx;
+  background: #f0fff6; border: 1rpx solid #b8ecd0; text-align: center;
+}
+.result-title { font-size: 34rpx; font-weight: 700; color: #07c160; }
+.result-sub { font-size: 26rpx; color: #333; margin-top: 12rpx; }
+.result-method { font-size: 24rpx; color: #999; margin-top: 8rpx; }
