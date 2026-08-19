@@ -691,8 +691,6 @@ async function openStoreInfoModal(staffId) {
     if (!s || !s.store) return alert('未找到门店信息');
     document.getElementById('siCode').value = s.store.code || '';
     document.getElementById('siName').value = s.store.name || '';
-    document.getElementById('siAddr').value = s.store.address || '';
-    document.getElementById('siMax').value = s.store.maxPerSlot || 1;
     document.getElementById('siPhone').value = s.store.phone || '';
     hideError('siError');
     document.getElementById('storeInfoModal').style.display = '';
