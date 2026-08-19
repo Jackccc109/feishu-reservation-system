@@ -1,52 +1,128 @@
 <!-- pages/admin/admin.wxml -->
 <view class="container">
-  <view class="card">
+  <!-- 未登录：账号密码登录卡片 -->
+  <view class="card" wx:if="{{!authed}}">
     <view class="admin-header">
-      <text class="admin-title">管理后台</text>
-      <picker mode="date" value="{{date}}" bindchange="onDate">
-        <view class="date-picker">{{date}} ▾</view>
-      </picker>
+      <text class="admin-title">🔒 员工登录</text>
+    </view>
+    <view class="form-group">
+      <text class="label">账号</text>
+      <input class="input" placeholder="请输入管理账号" value="{{username}}" bindinput="onUsername" />
+    </view>
+    <view class="form-group">
+      <text class="label">密码</text>
+      <input class="input" password placeholder="请输入密码" value="{{password}}" bindinput="onPassword" confirm-type="done" bindconfirm="doLogin" />
+    </view>
+    <button class="submit-btn" bindtap="doLogin" loading="{{loginLoading}}">登录</button>
+  </view>
+
+  <!-- 已登录：管理面板 -->
+  <block wx:else>
+    <view class="card">
+      <view class="admin-header">
+        <text class="admin-title">管理后台</text>
+        <view class="admin-header-right">
+          <text class="unlock-btn {{unlocked?'on':''}}" bindtap="openVerify">{{unlocked ? '🔓 已解锁' : '📱 完整号码'}}</text>
+          <text class="logout-btn" bindtap="logout">退出</text>
+        </view>
+      </view>
+
+      <button class="scan-btn" bindtap="goCheckin">✅ 员工签到页（扫一扫）</button>
+
+      <view class="stats" wx:if="{{stats}}">
+        <view class="stat-item">
+          <text class="stat-num">{{stats.total || 0}}</text>
+          <text class="stat-label">总预约</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-num">{{stats.checkedIn || 0}}</text>
+          <text class="stat-label">已签到</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-num">{{stats.pending || 0}}</text>
+          <text class="stat-label">待签到</text>
+        </view>
+      </view>
+
+      <button class="scan-btn" bindtap="scanCheckin">📷 扫码签到</button>
+
+      <!-- 统一搜索：手机号 / 姓名 / 预约码（可搜索所选日期的预约） -->
+      <view class="search-row">
+        <input class="search-input" placeholder="搜索手机号 / 姓名 / 预约码" value="{{search}}" bindinput="onSearch" confirm-type="search" bindconfirm="doSearch" />
+        <button class="search-btn" bindtap="doSearch">搜索</button>
+      </view>
+      <view class="search-hint" wx:if="{{search}}">搜索当前日期（{{date}}）的预约，支持手机号、姓名、预约码</view>
+
+      <view class="filter-row">
+        <text class="filter-tag {{statusFilter===''?'active':''}}" data-status="" bindtap="filterStatus">全部</text>
+        <text class="filter-tag {{statusFilter==='pending'?'active':''}}" data-status="pending" bindtap="filterStatus">待签到</text>
+        <text class="filter-tag {{statusFilter==='checked_in'?'active':''}}" data-status="checked_in" bindtap="filterStatus">已签到</text>
+        <text class="filter-tag {{statusFilter==='cancelled'?'active':''}}" data-status="cancelled" bindtap="filterStatus">已取消</text>
+      </view>
     </view>
 
-    <view class="stats" wx:if="{{stats}}">
-      <view class="stat-item">
-        <text class="stat-num">{{stats.total || 0}}</text>
-        <text class="stat-label">总预约</text>
-      </view>
-      <view class="stat-item">
-        <text class="stat-num">{{stats.checkedIn || 0}}</text>
-        <text class="stat-label">已签到</text>
-      </view>
-      <view class="stat-item">
-        <text class="stat-num">{{stats.pending || 0}}</text>
-        <text class="stat-label">待签到</text>
+    <!-- 今日排队看板 -->
+    <view class="card" wx:if="{{queueGroups.length}}">
+      <view class="queue-title">📋 今日待签到（按时段）</view>
+      <view class="queue-group" wx:for="{{queueGroups}}" wx:key="slot" wx:for-item="g">
+        <view class="queue-slot">{{g.slot}}</view>
+        <view class="queue-person" wx:for="{{g.list}}" wx:for-item="p" wx:key="code">
+          {{p.name}} · {{p.partySize}}人 · {{p.phone}}
+        </view>
       </view>
     </view>
 
-    <button class="scan-btn" bindtap="scanCheckin">📷 扫码签到</button>
-
-    <view class="search-row">
-      <input class="search-input" placeholder="搜索姓名/手机/预约码" value="{{search}}" bindinput="onSearch" confirm-type="search" bindconfirm="doSearch" />
-      <button class="search-btn" bindtap="doSearch">搜索</button>
+    <view class="list">
+      <view class="list-item" wx:for="{{list}}" wx:key="code">
+        <view class="item-top">
+          <text class="item-name">{{item.name}}</text>
+          <text class="item-status status-{{item.status}}">{{item.statusText}}</text>
+        </view>
+        <view class="item-info">{{item.timeSlot}} · {{item.partySize}}人 · 排队{{item.queueNumber}}</view>
+        <view class="item-sub">预约码 {{item.code}} · {{item.phone}}</view>
+        <view class="item-actions" wx:if="{{item.status==='pending'}}">
+          <text class="act-btn" data-code="{{item.code}}" data-name="{{item.name}}" data-date="{{item.date}}" data-slot="{{item.timeSlot}}" catchtap="onReschedule">改签</text>
+          <text class="act-btn danger" data-code="{{item.code}}" data-name="{{item.name}}" catchtap="onCancel">取消</text>
+        </view>
+      </view>
+      <view wx:if="{{!list.length}}" class="empty">暂无预约记录</view>
     </view>
+  </block>
 
-    <view class="filter-row">
-      <text class="filter-tag {{statusFilter===''?'active':''}}" data-status="" bindtap="filterStatus">全部</text>
-      <text class="filter-tag {{statusFilter==='pending'?'active':''}}" data-status="pending" bindtap="filterStatus">待签到</text>
-      <text class="filter-tag {{statusFilter==='checked_in'?'active':''}}" data-status="checked_in" bindtap="filterStatus">已签到</text>
-      <text class="filter-tag {{statusFilter==='cancelled'?'active':''}}" data-status="cancelled" bindtap="filterStatus">已取消</text>
+  <!-- 短信验证弹窗（查看完整手机号） -->
+  <view class="modal-mask" wx:if="{{verifyShow}}">
+    <view class="modal-card">
+      <view class="modal-title">📱 查看完整手机号</view>
+      <view class="modal-tip" wx:if="{{verifyPhone}}">验证码已发送到员工手机 {{verifyPhone}}</view>
+      <view class="modal-tip" wx:else>验证码将发送到当前登录员工手机</view>
+      <button class="submit-btn" bindtap="sendVerifyCode" loading="{{verifySending}}" disabled="{{verifySent}}">
+        {{verifySent ? '已发送（5分钟内有效）' : '获取验证码'}}
+      </button>
+      <input class="input" placeholder="输入6位验证码" value="{{verifyCode}}" bindinput="onVerifyCode" maxlength="6" confirm-type="done" bindconfirm="checkVerifyCode" />
+      <view class="verify-err">{{verifyError}}</view>
+      <view class="modal-actions">
+        <button class="submit-btn" bindtap="checkVerifyCode">验证并解锁</button>
+        <button class="plain-btn" bindtap="closeVerify">取消</button>
+      </view>
     </view>
   </view>
 
-  <view class="list">
-    <view class="list-item" wx:for="{{list}}" wx:key="code">
-      <view class="item-top">
-        <text class="item-name">{{item.name}}</text>
-        <text class="item-status status-{{item.status}}">{{item.statusText}}</text>
+  <!-- 改签弹窗 -->
+  <view class="modal-mask" wx:if="{{rsShow}}">
+    <view class="modal-card">
+      <view class="modal-title">改签预约</view>
+      <view class="modal-tip">{{rsName}} · 原 {{rsDate}} {{rsSlot}}</view>
+      <picker mode="date" value="{{rsDate}}" bindchange="onRsDate">
+        <view class="picker">{{rsDate || '选择新日期'}}</view>
+      </picker>
+      <picker mode="selector" range="{{rsSlotLabels}}" value="{{rsSlotIndex}}" bindchange="onRsSlot">
+        <view class="picker">{{rsSlotLabels[rsSlotIndex] || '选择新时段'}}</view>
+      </picker>
+      <view class="verify-err">{{rsError}}</view>
+      <view class="modal-actions">
+        <button class="submit-btn" bindtap="confirmReschedule" loading="{{rsLoading}}">确认改签</button>
+        <button class="plain-btn" bindtap="closeReschedule">取消</button>
       </view>
-      <view class="item-info">{{item.timeSlot}} · {{item.partySize}}人 · 排队{{item.queueNumber}}</view>
-      <view class="item-sub">预约码 {{item.code}} · {{item.phone}}</view>
     </view>
-    <view wx:if="{{!list.length}}" class="empty">暂无预约记录</view>
   </view>
 </view>

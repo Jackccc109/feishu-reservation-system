@@ -5,6 +5,12 @@
     <view class="success-title">预约成功</view>
 
     <view class="info-row" wx:if="{{reservation}}">
+      <text class="info-label">门店</text><text class="info-value">{{reservation.storeName}}</text>
+    </view>
+    <view class="info-row" wx:if="{{reservation && reservation.activityTitle}}">
+      <text class="info-label">活动</text><text class="info-value">{{reservation.activityTitle}}</text>
+    </view>
+    <view class="info-row" wx:if="{{reservation}}">
       <text class="info-label">姓名</text><text class="info-value">{{reservation.name}}</text>
     </view>
     <view class="info-row" wx:if="{{reservation}}">
@@ -16,22 +22,12 @@
     <view class="info-row" wx:if="{{reservation}}">
       <text class="info-label">时段</text><text class="info-value">{{reservation.timeSlot}}</text>
     </view>
-    <view class="info-row" wx:if="{{reservation}}">
-      <text class="info-label">排队号</text><text class="info-value highlight">{{reservation.queueNumber}}</text>
-    </view>
-    <view class="info-row" wx:if="{{reservation}}">
-      <text class="info-label">签到码</text><text class="info-value highlight">{{reservation.signinCode}}</text>
-    </view>
-
-    <view class="qr-section" wx:if="{{qrUrl}}">
-      <text class="qr-tip">出示二维码签到（长按可保存）</text>
-      <image class="qr-img" src="{{qrUrl}}" mode="aspectFit" show-menu-by-longpress="{{true}}"></image>
-    </view>
 
     <view class="tip-box">
-      <text>温馨提示：请提前5-10分钟完成签到。可凭二维码、签到码或手机号后4位任一方式签到。期待您在{{reservation.storeName}}的体验。</text>
+      <text>预约成功！请按预约时间到店，到店后由店员为您核销签到。可在「我的预约」查看预约码和签到凭证。期待您在{{reservation.storeName}}的体验。</text>
     </view>
 
     <button class="home-btn" bindtap="backHome">返回首页</button>
+    <button class="home-btn mine-btn" bindtap="goMine">在「我的预约」查看</button>
   </view>
 </view>

@@ -2,8 +2,9 @@
   "pages": [
     "pages/reserve/reserve",
     "pages/success/success",
-    "pages/checkin/checkin",
-    "pages/admin/admin"
+    "pages/mine/mine",
+    "pages/admin/admin",
+    "pages/checkin/checkin"
   ],
   "window": {
     "navigationBarBackgroundColor": "#07c160",
@@ -18,8 +19,7 @@
     "borderStyle": "black",
     "list": [
       { "pagePath": "pages/reserve/reserve", "text": "预约" },
-      { "pagePath": "pages/checkin/checkin", "text": "签到" },
-      { "pagePath": "pages/admin/admin", "text": "管理" }
+      { "pagePath": "pages/mine/mine", "text": "我的" }
     ]
   },
   "style": "v2",

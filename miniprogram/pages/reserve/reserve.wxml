@@ -1,20 +1,21 @@
 <!-- pages/reserve/reserve.wxml -->
 <view class="container">
+  <!-- 微信登录提示条：未登录时显示 -->
+  <view class="login-bar" wx:if="{{!loggedIn}}">
+    <text class="login-bar-text">微信登录后可预约</text>
+    <button class="login-btn" size="mini" bindtap="wxLogin" loading="{{loginLoading}}">微信登录</button>
+  </view>
+  <view class="login-bar logged" wx:else>
+    <text class="login-bar-text">✓ 已微信登录</text>
+  </view>
+
   <view class="header">
-    <view class="store-name">{{storeName}}</view>
-    <view class="store-addr" wx:if="{{storeAddress}}">{{storeAddress}}</view>
+    <view class="store-name">{{activityTitle || storeName}}</view>
+    <view class="store-addr" wx:if="{{storeLine}}">{{storeLine}}</view>
+    <button class="share-btn" open-type="share" size="mini">分享给朋友</button>
   </view>
 
   <view class="card">
-    <!-- 微信资料：头像 + 昵称（一键授权） -->
-    <view class="wx-profile">
-      <button class="avatar-btn" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
-        <image wx:if="{{avatarUrl}}" class="avatar-img" src="{{avatarUrl}}" mode="aspectFill" />
-        <view wx:else class="avatar-placeholder">点击</view>
-      </button>
-      <input class="nickname-input" type="nickname" placeholder="点击填写微信昵称" value="{{nickname}}" bindinput="onNickname" />
-    </view>
-
     <view class="form-group">
       <text class="label">姓名</text>
       <input class="input" placeholder="请输入姓名" value="{{name}}" bindinput="onName" />
@@ -23,9 +24,6 @@
     <view class="form-group">
       <text class="label">手机号</text>
       <input class="input" type="number" placeholder="请输入手机号" value="{{phone}}" bindinput="onPhone" maxlength="11" />
-      <button class="wx-phone-btn" open-type="getPhoneNumber" bindgetphonenumber="getPhoneNumber">
-        {{phoneFromWx ? '已获取 ✓' : '微信一键获取'}}
-      </button>
     </view>
 
     <view class="form-group">
@@ -44,6 +42,13 @@
       <text class="label">日期</text>
       <picker mode="date" value="{{date}}" bindchange="onDate">
         <view class="picker">{{date}}</view>
+      </picker>
+    </view>
+
+    <view class="form-group" wx:if="{{multiActivity}}">
+      <text class="label">选择活动</text>
+      <picker mode="selector" range="{{activityLabels}}" value="{{activityIndex}}" bindchange="onActivity">
+        <view class="picker">{{activityLabels[activityIndex] || '选择活动'}}</view>
       </picker>
     </view>
 

@@ -26,3 +26,82 @@
 .item-info { font-size: 26rpx; color: #333; margin-top: 10rpx; }
 .item-sub { font-size: 22rpx; color: #999; margin-top: 6rpx; }
 .empty { text-align: center; color: #999; font-size: 26rpx; padding: 60rpx 0; }
+
+/* 管理头部右侧（日期选择 + 退出） */
+.admin-header-right {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+.logout-btn {
+  font-size: 24rpx;
+  color: #999;
+  padding: 6rpx 16rpx;
+  border: 1rpx solid #ddd;
+  border-radius: 8rpx;
+}
+
+/* 解锁按钮 */
+.unlock-btn {
+  font-size: 24rpx;
+  color: #999;
+  padding: 6rpx 16rpx;
+  border: 1rpx solid #ddd;
+  border-radius: 8rpx;
+}
+.unlock-btn.on { color: #389e0d; border-color: #389e0d; }
+
+/* 排队看板 */
+.queue-title { font-size: 28rpx; font-weight: 600; margin-bottom: 16rpx; }
+.queue-group { margin-bottom: 16rpx; }
+.queue-slot { font-size: 24rpx; color: #07c160; font-weight: 600; margin-bottom: 8rpx; }
+.queue-person { font-size: 24rpx; color: #666; padding: 6rpx 0 6rpx 16rpx; border-left: 3rpx solid #e8f8ef; }
+
+/* 列表操作按钮 */
+.item-actions { display: flex; gap: 16rpx; margin-top: 12rpx; }
+.act-btn {
+  font-size: 24rpx;
+  color: #07c160;
+  border: 1rpx solid #b7eb8f;
+  border-radius: 8rpx;
+  padding: 4rpx 20rpx;
+}
+.act-btn.danger { color: #e64340; border-color: #ffb2ae; }
+
+/* 弹窗 */
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-card {
+  width: 620rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 32rpx;
+}
+.modal-title { font-size: 32rpx; font-weight: 700; margin-bottom: 16rpx; }
+.modal-tip { font-size: 24rpx; color: #999; margin-bottom: 20rpx; }
+.modal-actions { display: flex; gap: 16rpx; margin-top: 24rpx; }
+.modal-actions .submit-btn { flex: 1; }
+.plain-btn {
+  flex: 1;
+  background: #f7f7f7;
+  color: #666;
+  border-radius: 12rpx;
+  font-size: 30rpx;
+}
+.verify-err { color: #e64340; font-size: 24rpx; margin-top: 12rpx; }
+
+/* 按手机号查询 */
+.phone-lookup { display: flex; gap: 12rpx; margin-top: 16rpx; align-items: center; }
+.lookup-input { flex: 1; }
+.lookup-result { margin-top: 20rpx; }
+.lookup-title { font-size: 26rpx; font-weight: 600; margin-bottom: 12rpx; color: #333; }
+
+/* 搜索提示 */
+.search-hint { font-size: 22rpx; color: #999; margin-top: 10rpx; }

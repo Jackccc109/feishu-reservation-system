@@ -97,6 +97,11 @@ https://open.feishu.cn/
    FEISHU_APP_TOKEN=BITABLEappxxxxx
    FEISHU_TABLE_ID=tblxxxxx
    BASE_URL=https://your-app.onrender.com
+   STORE_NAME=你的门店名
+   STORE_ADDRESS=门店地址
+   MAX_PER_SLOT=1
+   ADMIN_USERNAME=admin
+   ADMIN_PASSWORD=设置一个强密码（管理端登录用，必填！）
    ```
 6. Deploy！获得链接如 `https://reservation-xxxx.onrender.com`
 
@@ -132,10 +137,14 @@ npx localtunnel --port 3000
 部署成功后，获得公网链接 `https://your-app.xxx.com`：
 
 ### 顾客端
-直接分享 `https://your-app.xxx.com` 给顾客（微信扫码即可打开）
+- **微信小程序**：需微信登录后才能预约；可查看"我的预约"（预约/签到码/状态）
+- **H5 网页**：直接分享 `https://your-app.xxx.com` 给顾客（扫码即可预约，无需登录）；扫码预约二维码可查看预约详情（只读）
 
-### 管理端
-`https://your-app.xxx.com/admin` 给门店员工使用
+### 管理端（店员）
+- 小程序「我的」页底部有**员工入口**：账号密码登录后，可**扫一扫签到**（wx.scanCode）、验证码/手机尾号签到、查看统计与预约管理、改签/取消
+- H5 管理后台 `https://your-app.xxx.com/admin`：同样账号密码登录（ADMIN_USERNAME / ADMIN_PASSWORD）
+- 到店签到由店员操作，顾客端无签到入口（严格分离）
+- 顾客二维码内容为 H5 预约详情页（只读），店员扫码用管理端扫一扫，两者不冲突
 
 ### 嵌入飞书工作台（可选）
 飞书开放平台 → 应用 → 应用功能 → 网页应用 → 添加：
@@ -170,4 +179,24 @@ npx localtunnel --port 3000
 20:00-20:20  20:20-20:40  20:40-21:00  21:00-21:20  21:20-21:40  21:40-22:00
 ```
 
-每个时段最多 1 组预约（可在 .env 中修改）。
+每个时段最多 1 组预约（可通过环境变量 `MAX_PER_SLOT` 修改，如 `MAX_PER_SLOT=2` 表示每个时段最多 2 组）。
+
+## 预约码 / 签到验证码
+
+预约码与签到验证码均为 6 位大写字母数字（如 `A1B2C3`），在预约成功页展示。
+
+## 管理端登录（账号 + 密码）
+
+管理端（小程序「我的」页员工入口 / H5 `/admin` / 所有 `/api/admin/*`、`/api/checkin` 接口）需要账号密码登录：
+- 账号：环境变量 `ADMIN_USERNAME`（默认 `admin`）
+- 密码：环境变量 `ADMIN_PASSWORD`（未设置时默认 `admin123`，启动会打印警告，正式部署务必修改）
+- 员工账号统一管理在 `data/staff.json`（首次启动用 .env 播种，H5 后台「员工管理」面板可增删员工、绑定手机号）
+- 登录成功签发 12 小时会话；小程序管理页或 H5 右上角可退出登录，立即失效
+- 会话为内存态，服务重启后需重新登录
+
+## 查看顾客完整手机号（短信验证码授权）
+
+顾客手机号默认脱敏（138\*\*\*\*5425），店员需查看完整号码时：
+1. 点「查看完整手机号」→ 短信验证码发送到**当前登录员工绑定手机号**（员工手机号在「员工管理」中统一配置）
+2. 输入验证码 → 解锁，5 分钟内可查看顾客完整手机号（可手动锁定提前结束）
+3. 未配置短信服务商（`SMS_PROVIDER=aliyun`）时，验证码打印在服务端控制台，供开发调试

@@ -4,7 +4,6 @@ const api = require('../../utils/api.js');
 Page({
   data: {
     reservation: null,
-    qrUrl: '',
     loading: true
   },
 
@@ -17,11 +16,7 @@ Page({
     }
     try {
       const r = await api.getReservation(code);
-      this.setData({
-        reservation: r,
-        qrUrl: api.getQrcodeUrl(code),
-        loading: false
-      });
+      this.setData({ reservation: r, loading: false });
     } catch (e) {
       wx.showToast({ title: '加载失败', icon: 'none' });
       this.setData({ loading: false });
@@ -29,6 +24,10 @@ Page({
   },
 
   backHome() {
-    wx.reLaunch({ url: '/pages/reserve/reserve' });
+    wx.switchTab({ url: '/pages/reserve/reserve' });
+  },
+
+  goMine() {
+    wx.switchTab({ url: '/pages/mine/mine' });
   }
 });

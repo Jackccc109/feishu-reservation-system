@@ -18,6 +18,13 @@ Page({
     error: ''
   },
 
+  onLoad() {
+    // 员工功能：需先通过管理口令登录，否则跳回管理登录页
+    if (!api.getAdminToken()) {
+      wx.redirectTo({ url: '/pages/admin/admin' });
+    }
+  },
+
   switchTab(e) {
     this.setData({ activeTab: e.currentTarget.dataset.tab, error: '', result: null });
   },

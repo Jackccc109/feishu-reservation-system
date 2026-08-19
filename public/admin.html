@@ -5,26 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>预约签到 - 门店管理</title>
   <link rel="stylesheet" href="/css/style.css">
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="/js/html5-qrcode.min.js"></script>
 </head>
 <body>
 <div class="app">
   <!-- ========== 顶部 ========== -->
   <div class="topbar topbar-admin">
     <div class="topbar-brand" id="storeName">优品生活馆</div>
-    <div class="topbar-addr">门店管理后台</div>
+    <div class="topbar-addr">门店管理后台
+      <select id="storeSelector" onchange="switchAdminStore()" style="margin-left:12px;padding:2px 8px;font-size:12px;border-radius:6px;border:1px solid #ddd;display:none;"></select>
+      <button class="btn btn-sm btn-outline" onclick="openStaffManage()" style="margin-left:6px;padding:2px 10px;font-size:12px;">🏪 门店管理</button>
+      <button class="btn btn-sm btn-outline" onclick="openActivities()" style="margin-left:6px;padding:2px 10px;font-size:12px;">🎪 活动管理</button>
+      <button class="btn btn-sm btn-outline" id="btnUnlock" onclick="openVerify()" style="margin-left:6px;padding:2px 10px;font-size:12px;">📱 查看完整手机号</button>
+      <button class="btn btn-sm btn-outline" onclick="logout()" style="margin-left:6px;padding:2px 10px;font-size:12px;">退出登录</button>
+    </div>
   </div>
 
   <div class="all-in-one">
 
-    <!-- ===== 签到 ===== -->
-    <section class="panel" id="panel-checkin">
-      <div class="panel-header">
-        <span class="step-badge">1</span>
-        <h2>客户签到</h2>
-        <span class="panel-sub">三种方式任选其一</span>
-      </div>
-      <div class="panel-body">
+      <div class="all-in-one">
+
+      <!-- ===== 快捷功能（顶部标签页） ===== -->
+  <div class="quick-tabs">
+    <button class="quick-tab active" data-tab="checkin" onclick="switchQuickTab('checkin')">✅ 客户签到</button>
+    <button class="quick-tab" data-tab="activities" onclick="switchQuickTab('activities')">🎪 活动管理</button>
+    <button class="quick-tab" data-tab="lookup" onclick="switchQuickTab('lookup')">🔍 顾客查询</button>
+  </div>
+  <div class="quick-pane active" id="pane-checkin">
+<div class="panel-body">
         <!-- 签到方式Tab -->
         <div class="checkin-tabs" id="checkinTabs">
           <button class="checkin-tab active" data-tab="phone" onclick="switchCheckinTab('phone')">📱 手机尾号</button>
@@ -75,9 +83,25 @@
 
         <div class="checkin-result" id="checkinResult"></div>
       </div>
-    </section>
+  </div>
+  <div class="quick-pane" id="pane-activities" style="display:none;">
+    <div style="font-size:13px;color:#666;margin-bottom:10px;" id="actStoreLabel">--</div>
+    <div id="activitiesList"></div>
+    <button class="btn btn-primary" onclick="openActivityModal(null)" style="margin-top:12px;">+ 新增活动</button>
+    <button class="btn btn-outline" id="btnSyncActivities" onclick="openSyncModal()" style="margin-top:12px;margin-left:8px;">🔄 一键同步活动</button>
+  </div>
+  <div class="quick-pane" id="pane-lookup" style="display:none;">
+<div class="panel-body">
+        <div class="checkin-row">
+          <input type="tel" id="lookupPhoneInput" class="form-input checkin-input" placeholder="输入顾客手机号" maxlength="11" inputmode="numeric" autocomplete="off">
+          <button class="btn btn-success" id="btnLookupPhone" onclick="doAdminLookup()">查询</button>
+        </div>
+        <div class="form-error" id="lookupPhoneError"></div>
+        <div id="lookupPhoneResult"></div>
+      </div>
+  </div>
 
-    <!-- ===== 统计看板 ===== -->
+<!-- ===== 统计看板 ===== -->
     <section class="panel" id="panel-stats">
       <div class="panel-header">
         <span class="step-badge">2</span>
@@ -142,8 +166,10 @@
       </div>
     </section>
 
+    
   </div>
 </div>
+
 
 <!-- ===== 改签弹窗 ===== -->
 <div class="modal-overlay" id="rescheduleModal" style="display:none;">
@@ -173,13 +199,1017 @@
   </div>
 </div>
 
+<!-- ===== 管理端登录弹窗（账号+密码） ===== -->
+<div class="modal-overlay" id="loginModal" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>🔒 管理端登录</h3>
+    </div>
+    <div class="modal-body">
+      <p class="modal-info">请输入管理端账号和密码</p>
+      <div class="form-group">
+        <label class="form-label">账号</label>
+        <input type="text" id="loginUsername" class="form-input" placeholder="账号" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label class="form-label">密码</label>
+        <input type="password" id="loginPassword" class="form-input" placeholder="密码" autocomplete="current-password">
+      </div>
+      <div class="form-error" id="loginError"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="btnLogin" onclick="doLogin()">登录</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 短信验证弹窗（查看完整手机号） ===== -->
+<div class="modal-overlay" id="verifyModal" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>📱 查看完整手机号</h3>
+      <button class="modal-close" onclick="closeVerify()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-info">验证码将发送到当前登录员工的手机（<span id="verifyPhone"></span>），验证通过后 5 分钟内可查看顾客完整手机号。</p>
+      <div class="form-group">
+        <button class="btn btn-primary btn-block" id="btnSendCode" onclick="sendVerifyCode()">获取验证码</button>
+      </div>
+      <div class="form-group">
+        <input type="text" id="verifyCode" class="form-input" placeholder="输入6位验证码" maxlength="6" inputmode="numeric" autocomplete="off">
+      </div>
+      <div class="form-error" id="verifyError"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeVerify()">取消</button>
+      <button class="btn btn-primary" onclick="checkVerifyCode()">验证并解锁</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 活动二维码/链接弹窗 ===== -->
+<div class="modal-overlay" id="actQrModal" style="display:none;z-index:1100;">
+  <div class="modal-box" style="max-width:480px;">
+    <div class="modal-header">
+      <h3 id="actQrTitle">📱 活动二维码</h3>
+      <button class="modal-close" onclick="closeActQr()">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align:center;">
+      <p class="modal-info">顾客扫码直达该活动的预约页</p>
+      <img id="actQrImg" src="" alt="活动二维码" style="width:220px;height:220px;margin:12px 0;">
+      <div style="font-size:12px;color:#666;word-break:break-all;background:#f8f8f8;border-radius:8px;padding:10px;" id="actQrLink"></div>
+      <button class="btn btn-sm btn-outline" onclick="copyActQrLink()" style="margin-top:10px;">复制链接</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 修改密码弹窗（验证旧密码） ===== -->
+<div class="modal-overlay" id="pwdModal" style="display:none;z-index:1150;">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <h3>🔑 修改密码</h3>
+      <button class="modal-close" onclick="closePwdModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-info" id="pwdModalInfo">--</p>
+      <div class="form-group">
+        <label class="form-label">旧密码</label>
+        <input type="password" id="pwdOld" class="form-input" placeholder="请输入旧密码">
+      </div>
+      <div class="form-group">
+        <label class="form-label">新密码</label>
+        <input type="password" id="pwdNew" class="form-input" placeholder="至少 6 位">
+      </div>
+      <div class="form-group">
+        <label class="form-label">确认新密码</label>
+        <input type="password" id="pwdNew2" class="form-input" placeholder="再次输入新密码">
+      </div>
+      <div class="form-error" id="pwdError"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closePwdModal()">取消</button>
+      <button class="btn btn-primary" onclick="submitPwdChange()">确认修改</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 一键同步活动弹窗 ===== -->
+<div class="modal-overlay" id="syncModal" style="display:none;z-index:1150;">
+  <div class="modal-box" style="max-width:480px;">
+    <div class="modal-header">
+      <h3>🔄 一键同步活动</h3>
+      <button class="modal-close" onclick="closeSyncModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-info">把当前门店的全部启用活动复制到所选门店（同标题活动跳过）</p>
+      <div id="syncTargets"></div>
+      <div class="form-error" id="syncError"></div>
+      <div id="syncResult"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeSyncModal()">取消</button>
+      <button class="btn btn-primary" onclick="doSyncActivities()">开始同步</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 门店信息编辑弹窗（总管理员） ===== -->
+<div class="modal-overlay" id="storeInfoModal" style="display:none;z-index:1150;">
+  <div class="modal-box" style="max-width:440px;">
+    <div class="modal-header">
+      <h3>🏪 门店信息</h3>
+      <button class="modal-close" onclick="closeStoreInfoModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-info">门店标题仅用于门店层展示（顶部/列表），不影响活动；活动标题/地址/时段请在「活动管理」配置</p>
+      <div class="form-group">
+        <label class="form-label">门店编码</label>
+        <input type="text" id="siCode" class="form-input" placeholder="英文/数字/下划线">
+      </div>
+      <div class="form-group">
+        <label class="form-label">门店标题</label>
+        <input type="text" id="siName" class="form-input" placeholder="门店标题">
+      </div>
+      <div class="form-error" id="siError"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeStoreInfoModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveStoreInfo()">保存门店信息</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 活动编辑弹窗 ===== -->
+<div class="modal-overlay" id="activityModal" style="display:none;z-index:1100;">
+  <div class="modal-box" style="max-height:82vh;overflow:auto;">
+    <div class="modal-header">
+      <h3 id="activityModalTitle">🎪 编辑活动</h3>
+      <button class="modal-close" onclick="closeActivityModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-info">活动标题显示在顾客端；时段为手动维护列表（格式 HH:MM-HH:MM）</p>
+      <div class="form-group">
+        <label class="form-label">活动标题</label>
+        <input type="text" id="actTitle" class="form-input" placeholder="如 新品体验活动">
+      </div>
+      <div class="form-group">
+        <label class="form-label">活动地址</label>
+        <input type="text" id="actAddr" class="form-input" placeholder="门店地址（可选）">
+      </div>
+      <div class="form-group">
+        <label class="form-label">每时段最大预约组数</label>
+        <input type="number" id="actMax" class="form-input" min="1" max="99" value="1">
+      </div>
+      <div class="form-group">
+        <label class="form-label">可预约时段</label>
+        <div id="actSlotsList"></div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <input type="text" id="actSlotNew" class="form-input" placeholder="如 10:00-10:20" style="flex:1;">
+          <button class="btn btn-outline" onclick="addActSlotRow()">+ 添加</button>
+        </div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:12px;">
+        <input type="checkbox" id="actEnabled" checked> 启用该活动（顾客端可见）
+      </label>
+      <div class="form-error" id="actError"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeActivityModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveActivityConfig()">保存活动</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 员工管理弹窗 ===== -->
+<div class="modal-overlay" id="staffModal" style="display:none;">
+  <div class="modal-box" style="max-width:860px;max-height:86vh;overflow:auto;">
+    <div class="modal-header">
+      <h3>🏪 门店管理</h3>
+      <button class="modal-close" onclick="closeStaffManage()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-info" style="font-size:12px;">每个员工账号对应一家门店；活动标题/时段在「活动管理」中配置。门店二维码：<a href="/store-qr" target="_blank">打开门店二维码页</a></p>
+
+      <div id="staffList"></div>
+
+      <div id="staffAddArea">
+      <h4 style="margin:16px 0 8px;">添加员工</h4>
+      <div class="staff-add-row" style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input type="text" id="staffUsername" class="form-input" placeholder="账号" style="flex:1;min-width:110px;">
+        <input type="password" id="staffPassword" class="form-input" placeholder="密码" style="flex:1;min-width:110px;">
+        <input type="tel" id="staffPhone" class="form-input" placeholder="手机号" maxlength="11" style="flex:1;min-width:130px;">
+        <input type="text" id="staffStoreCode" class="form-input" placeholder="门店编码" style="flex:1;min-width:100px;">
+        <input type="text" id="staffStoreName" class="form-input" placeholder="门店标题" style="flex:1;min-width:120px;">
+        <select id="staffRole" class="form-input" style="flex:1;min-width:110px;">
+          <option value="store">门店管理员</option>
+          <option value="super">总管理员</option>
+        </select>
+        <button class="btn btn-primary" onclick="addStaff()">添加</button>
+      </div>
+
+      <div id="staffImportArea">
+      <h4 style="margin:16px 0 8px;">批量导入（CSV）</h4>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" onclick="downloadStaffCsvTemplate()">⬇ 下载模板</button>
+        <label class="btn btn-outline btn-sm" style="cursor:pointer;">📄 选择 CSV 导入
+          <input type="file" id="staffCsvInput" accept=".csv,text/csv" style="display:none;" onchange="importStaffCsv(this)">
+        </label>
+        <span style="font-size:12px;color:#999;">格式：账号,密码,手机号,门店编码,门店标题（模板第一行是示例，导入时跳过）</span>
+      </div>
+      <div id="csvImportResult" style="margin-top:10px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
+/* ============ 管理端登录鉴权 ============ */
+const ADMIN_TOKEN_KEY = 'adminToken';
+const UNLOCK_TOKEN_KEY = 'unlockToken';
+let adminToken = localStorage.getItem(ADMIN_TOKEN_KEY) || '';
+let unlockToken = localStorage.getItem(UNLOCK_TOKEN_KEY) || '';
+
+async function apiFetch(url, opts = {}) {
+  const headers = { ...(opts.headers || {}) };
+  if (adminToken) headers['X-Admin-Token'] = adminToken;
+  if (unlockToken) headers['X-Unlock-Token'] = unlockToken; // 短信解锁后可看完整手机号
+  const res = await fetch(url, { ...opts, headers });
+  if (res.status === 401 && !opts._retried) {
+    // 登录失效/过期 → 弹出登录框
+    showLogin();
+    throw new Error('NEED_LOGIN');
+  }
+  return res;
+}
+
+function showLogin() {
+  document.getElementById('loginModal').style.display = '';
+  document.getElementById('loginError').classList.remove('show');
+  setTimeout(() => document.getElementById('loginUsername').focus(), 100);
+}
+
+function hideLogin() {
+  document.getElementById('loginModal').style.display = 'none';
+}
+
+async function doLogin() {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value.trim();
+  if (!username || !password) return showError('loginError', '请输入账号和密码');
+  const res = await fetch('/api/admin/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    return showError('loginError', data.error || '登录失败');
+  }
+  adminToken = data.token;
+  localStorage.setItem(ADMIN_TOKEN_KEY, data.token);
+  document.getElementById('loginPassword').value = '';
+  hideLogin();
+  // 角色初始化（super：门店选择器；store：本店）
+  initAdminUI(data.staff && data.staff.role, data.staff && data.staff.store && data.staff.store.code, data.staff && data.staff.store && data.staff.store.name);
+  await refreshAll();
+}
+
+// 退出登录
+async function logout() {
+  if (!adminToken) return;
+  try {
+    await fetch('/api/admin/logout', { method: 'POST', headers: { 'X-Admin-Token': adminToken } });
+  } catch (e) { /* ignore */ }
+  adminToken = '';
+  localStorage.removeItem(ADMIN_TOKEN_KEY);
+  localStorage.removeItem(UNLOCK_TOKEN_KEY);
+  unlockToken = '';
+  updateUnlockUI();
+  showLogin();
+}
+
+/* ============ 查看完整手机号（短信验证码授权） ============ */
+function updateUnlockUI() {
+  const btn = document.getElementById('btnUnlock');
+  if (!btn) return;
+  if (unlockToken) {
+    btn.textContent = '🔓 已解锁(5分钟)';
+    btn.style.color = '#389e0d';
+    btn.style.borderColor = '#389e0d';
+  } else {
+    btn.textContent = '📱 查看完整手机号';
+    btn.style.color = '';
+    btn.style.borderColor = '';
+  }
+}
+
+function openVerify() {
+  if (unlockToken) {
+    // 已解锁：询问是否重新验证/锁定
+    if (!confirm('当前已解锁查看完整手机号，确定要锁定吗？')) return;
+    lockUnlock();
+    return;
+  }
+  document.getElementById('verifyModal').style.display = '';
+  document.getElementById('verifyPhone').textContent = '--';
+  document.getElementById('verifyCode').value = '';
+  hideError('verifyError');
+}
+
+function closeVerify() {
+  document.getElementById('verifyModal').style.display = 'none';
+}
+
+async function sendVerifyCode() {
+  hideError('verifyError');
+  const btn = document.getElementById('btnSendCode');
+  btn.disabled = true; btn.textContent = '发送中…';
+  try {
+    const res = await apiFetch('/api/admin/verify/send', { method: 'POST' });
+    const d = await res.json();
+    if (!res.ok) { showError('verifyError', d.error || '发送失败'); return; }
+    document.getElementById('verifyPhone').textContent = d.phoneMasked;
+    btn.textContent = '已发送（5分钟内有效）';
+    // 开发模式提示：验证码在服务端控制台
+    setTimeout(() => { btn.disabled = false; btn.textContent = '重新获取'; }, 30000);
+  } catch (e) {
+    if (e.message !== 'NEED_LOGIN') showError('verifyError', '发送失败，请重试');
+  } finally {
+    if (!btn.disabled) btn.textContent = '获取验证码';
+  }
+}
+
+async function checkVerifyCode() {
+  const code = document.getElementById('verifyCode').value.trim();
+  if (!/^\d{6}$/.test(code)) return showError('verifyError', '请输入6位验证码');
+  hideError('verifyError');
+  try {
+    const res = await apiFetch('/api/admin/verify/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const d = await res.json();
+    if (!res.ok) { showError('verifyError', d.error || '验证失败'); return; }
+    unlockToken = d.unlockToken;
+    localStorage.setItem(UNLOCK_TOKEN_KEY, d.unlockToken);
+    updateUnlockUI();
+    closeVerify();
+    await refreshAll();
+    alert('已解锁，5分钟内可查看顾客完整手机号');
+  } catch (e) {
+    if (e.message !== 'NEED_LOGIN') showError('verifyError', '验证失败，请重试');
+  }
+}
+
+async function lockUnlock() {
+  try {
+    await apiFetch('/api/admin/verify/lock', { method: 'POST' });
+  } catch (e) { /* ignore */ }
+  unlockToken = '';
+  localStorage.removeItem(UNLOCK_TOKEN_KEY);
+  updateUnlockUI();
+  refreshAll();
+}
+
+document.getElementById('verifyCode').addEventListener('keydown', e => {
+  if (e.key === 'Enter') checkVerifyCode();
+});
+
+/* ============ 员工管理 ============ */
+let editingStaffId = null;
+
+function openStaffManage() {
+  document.getElementById('staffModal').style.display = '';
+  loadStaff();
+}
+
+function closeStaffManage() {
+  document.getElementById('staffModal').style.display = 'none';
+}
+
+async function loadStaff() {
+  try {
+    const res = await apiFetch('/api/admin/staff');
+    const d = await res.json();
+    const list = d.staff || [];
+    document.getElementById('staffList').innerHTML = list.length
+      ? `<table><thead><tr><th>账号</th><th>手机号</th><th>门店</th><th>操作</th></tr></thead><tbody>` +
+        list.map(s => `<tr>
+          <td>${escapeHtml(s.username)} <span style="font-size:10px;padding:1px 6px;border-radius:6px;${s.role === 'super' ? 'background:#fff1f0;color:#cf1322;' : 'background:#e6f4ff;color:#0958d9;'}">${s.role === 'super' ? '总管理员' : '门店'}</span></td>
+          <td>
+            <input type="tel" maxlength="11" value="${escapeHtml(s.phone)}" id="staffPhone_${s.id}" style="width:130px;padding:4px 8px;border:1px solid #ddd;border-radius:6px;">
+          </td>
+          <td style="font-size:12px;">${escapeHtml(s.store ? s.store.name : '')}<br><code style="color:var(--primary);">${escapeHtml(s.store ? s.store.code : '')}</code></td>
+          <td>
+            ${adminRole === 'super' ? `<button class="btn btn-sm btn-outline" onclick="viewStaffPassword('${s.id}','${escapeHtml(s.username)}')">查看密码</button>` : ''}
+            <button class="btn btn-sm btn-outline" onclick="openPwdModal('${s.id}','${escapeHtml(s.username)}')">改密码</button>
+            <button class="btn btn-sm btn-outline" onclick="saveStaffPhone('${s.id}')">存手机号</button>
+            ${adminRole === 'super' ? `<button class="btn btn-sm btn-outline" onclick="openStoreInfoModal('${s.id}')">编辑</button>
+            <button class="btn btn-sm btn-outline" onclick="toggleStaffRole('${s.id}','${s.role === 'super' ? 'store' : 'super'}','${escapeHtml(s.username)}')">${s.role === 'super' ? '设为门店' : '设为总管理'}</button>
+            <button class="btn btn-sm btn-outline btn-danger-outline" onclick="removeStaff('${s.id}','${escapeHtml(s.username)}')">删除</button>` : ''}
+          </td>
+        </tr>`).join('') + `</tbody></table>`
+      : '<div class="queue-empty">暂无员工</div>';
+  } catch (e) { if (e.message !== 'NEED_LOGIN') console.error(e); }
+}
+
+/* ===== 门店信息编辑（总管理员） ===== */
+let storeInfoTargetId = null;
+
+async function openStoreInfoModal(staffId) {
+  storeInfoTargetId = staffId;
+  try {
+    const res = await apiFetch('/api/admin/staff');
+    const d = await res.json();
+    const s = (d.staff || []).find(x => x.id === staffId);
+    if (!s || !s.store) return alert('未找到门店信息');
+    document.getElementById('siCode').value = s.store.code || '';
+    document.getElementById('siName').value = s.store.name || '';
+    document.getElementById('siAddr').value = s.store.address || '';
+    document.getElementById('siMax').value = s.store.maxPerSlot || 1;
+    hideError('siError');
+    document.getElementById('storeInfoModal').style.display = '';
+  } catch (e) { if (e.message !== 'NEED_LOGIN') alert('加载失败'); }
+}
+
+function closeStoreInfoModal() {
+  document.getElementById('storeInfoModal').style.display = 'none';
+  storeInfoTargetId = null;
+}
+
+async function saveStoreInfo() {
+  const code = document.getElementById('siCode').value.trim();
+  const name = document.getElementById('siName').value.trim();
+  if (!code) return showError('siError', '请填写门店编码');
+  if (!/^[a-zA-Z0-9_-]+$/.test(code)) return showError('siError', '门店编码只能含英文/数字/下划线');
+  if (!name) return showError('siError', '请填写门店标题');
+  hideError('siError');
+  try {
+    const res = await apiFetch('/api/admin/staff/' + storeInfoTargetId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ store: { code, name } })
+    });
+    const d = await res.json();
+    if (!res.ok) { showError('siError', d.error || '保存失败'); return; }
+    alert('门店信息已保存');
+    closeStoreInfoModal();
+    loadStaff();
+    // 刷新门店选择器
+    const sel = document.getElementById('storeSelector');
+    if (sel && adminRole === 'super') {
+      const r = await apiFetch('/api/admin/staff');
+      const dd = await r.json();
+      const stores = (dd.staff || []).map(x => ({ code: x.store.code, name: x.store.name })).filter((v,i,a) => a.findIndex(y => y.code === v.code) === i);
+      sel.innerHTML = stores.map(x => `<option value="${escapeHtml(x.code)}">${escapeHtml(x.name)} (${escapeHtml(x.code)})</option>`).join('');
+      sel.value = adminStoreCode;
+    }
+  } catch (e) { if (e.message !== 'NEED_LOGIN') showError('siError', '保存失败'); }
+}
+
+/* ===== 查看密码 / 修改密码（弹窗验证旧密码） ===== */
+let pwdTargetId = null;
+
+async function viewStaffPassword(id, username) {
+  try {
+    const res = await apiFetch('/api/admin/staff');
+    const d = await res.json();
+    const s = (d.staff || []).find(x => x.id === id);
+    if (!s) return alert('未找到账号');
+    if (s.passwordPlain) {
+      alert(`账号「${username}」的密码是：\n\n${s.passwordPlain}`);
+    } else {
+      alert(`账号「${username}」为旧账号（未保存明文密码），无法查看，可点「改密码」重置。`);
+    }
+  } catch (e) { if (e.message !== 'NEED_LOGIN') alert('获取失败'); }
+}
+
+function openPwdModal(id, username) {
+  pwdTargetId = id;
+  document.getElementById('pwdModalInfo').textContent = `修改账号「${username}」的密码（需验证旧密码）`;
+  document.getElementById('pwdOld').value = '';
+  document.getElementById('pwdNew').value = '';
+  document.getElementById('pwdNew2').value = '';
+  hideError('pwdError');
+  document.getElementById('pwdModal').style.display = '';
+  setTimeout(() => document.getElementById('pwdOld').focus(), 100);
+}
+
+function closePwdModal() {
+  document.getElementById('pwdModal').style.display = 'none';
+  pwdTargetId = null;
+}
+
+async function submitPwdChange() {
+  const oldPwd = document.getElementById('pwdOld').value;
+  const newPwd = document.getElementById('pwdNew').value;
+  const newPwd2 = document.getElementById('pwdNew2').value;
+  if (!oldPwd) return showError('pwdError', '请输入旧密码');
+  if (!newPwd || newPwd.length < 6) return showError('pwdError', '新密码至少 6 位');
+  if (newPwd !== newPwd2) return showError('pwdError', '两次输入的新密码不一致');
+  hideError('pwdError');
+  try {
+    const res = await apiFetch('/api/admin/staff/' + pwdTargetId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ oldPassword: oldPwd, password: newPwd })
+    });
+    const d = await res.json();
+    if (!res.ok) { showError('pwdError', d.error || '修改失败'); return; }
+    alert('密码已修改');
+    closePwdModal();
+    loadStaff();
+  } catch (e) { if (e.message !== 'NEED_LOGIN') showError('pwdError', '修改失败'); }
+}
+
+/* ===== 活动二维码 / 链接 ===== */
+let actQrUrl = '';
+
+function openActivityQr(actId, title) {
+  const qs = adminStoreCode ? '?store=' + encodeURIComponent(adminStoreCode) + '&act=' + encodeURIComponent(actId) : '?act=' + encodeURIComponent(actId);
+  document.getElementById('actQrTitle').textContent = '📱 ' + title;
+  document.getElementById('actQrImg').src = '/api/activity-qr' + qs;
+  actQrUrl = location.origin + '/?store=' + encodeURIComponent(adminStoreCode) + '&act=' + encodeURIComponent(actId);
+  document.getElementById('actQrLink').textContent = actQrUrl;
+  document.getElementById('actQrModal').style.display = '';
+}
+
+function closeActQr() {
+  document.getElementById('actQrModal').style.display = 'none';
+}
+
+function copyActQrLink() {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(actQrUrl).then(() => alert('链接已复制')).catch(() => alert(actQrUrl));
+  } else {
+    alert(actQrUrl);
+  }
+}
+
+/* ===== 一键同步活动（仅总管理员） ===== */
+async function openSyncModal() {
+  document.getElementById('syncResult').innerHTML = '';
+  hideError('syncError');
+  try {
+    const res = await apiFetch('/api/admin/staff');
+    const d = await res.json();
+    const others = (d.staff || []).filter(x => x.store && x.store.code !== adminStoreCode);
+    document.getElementById('syncTargets').innerHTML = others.length
+      ? others.map(x => `
+        <label style="display:block;padding:6px 0;cursor:pointer;">
+          <input type="checkbox" class="sync-target" value="${escapeHtml(x.store.code)}"> ${escapeHtml(x.store.name)} (${escapeHtml(x.store.code)})
+        </label>`).join('')
+      : '<div class="queue-empty">没有其他门店</div>';
+    document.getElementById('syncModal').style.display = '';
+  } catch (e) { if (e.message !== 'NEED_LOGIN') alert('加载门店失败'); }
+}
+
+function closeSyncModal() {
+  document.getElementById('syncModal').style.display = 'none';
+}
+
+async function doSyncActivities() {
+  const targets = [...document.querySelectorAll('.sync-target:checked')].map(c => c.value);
+  if (!targets.length) return showError('syncError', '请至少选择一个目标门店');
+  hideError('syncError');
+  try {
+    const res = await apiFetch('/api/admin/activities/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetStores: targets })
+    });
+    const d = await res.json();
+    if (!res.ok) { showError('syncError', d.error || '同步失败'); return; }
+    document.getElementById('syncResult').innerHTML = (d.results || []).map(r =>
+      `<div style="font-size:13px;margin-top:6px;">门店 ${escapeHtml(r.storeCode)}：${r.error ? '❌ ' + escapeHtml(r.error) : '✅ 新增 ' + r.added + ' 个，跳过 ' + r.skipped + ' 个'}</div>`
+    ).join('');
+    loadActivities();
+  } catch (e) { if (e.message !== 'NEED_LOGIN') showError('syncError', '同步失败'); }
+}
+
+/* ===== CSV 模板下载与批量导入 ===== */
+function downloadStaffCsvTemplate() {
+  // UTF-8 BOM 保证 Excel 打开不乱码；第一行为示例（导入时跳过）
+  const csv = '\uFEFF账号,密码,手机号,门店编码,门店标题\n' +
+    '示例员工,123456,13800000000,store-c,示例门店\n' +
+    'xiaozhang,123456,13900000000,store-d,张店\n';
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '员工批量导入模板.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+function importStaffCsv(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const box = document.getElementById('csvImportResult');
+  box.innerHTML = '<div class="queue-empty">解析中…</div>';
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const text = String(reader.result).replace(/^\uFEFF/, '');
+      const rows = parseCsv(text);
+      // 第一行是表头/示例，跳过
+      const dataRows = rows.slice(1);
+      if (!dataRows.length) { box.innerHTML = '<div class="success-tip"><p>CSV 没有数据行</p></div>'; return; }
+      const staff = dataRows.map(r => ({
+        username: (r[0] || '').trim(),
+        password: (r[1] || '').trim(),
+        phone: (r[2] || '').trim(),
+        storeCode: (r[3] || '').trim(),
+        storeName: (r[4] || '').trim()
+      })).filter(r => r.username || r.password || r.phone || r.storeCode || r.storeName);
+      const res = await apiFetch('/api/admin/staff/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ staff })
+      });
+      const d = await res.json();
+      if (!res.ok) { box.innerHTML = `<div class="success-tip"><p>${escapeHtml(d.error || '导入失败')}</p></div>`; return; }
+      const created = d.created || [];
+      const errors = d.errors || [];
+      box.innerHTML = `<div class="success-tip"><p>导入完成：成功 ${created.length} 条，失败 ${errors.length} 条</p></div>` +
+        (errors.length ? `<div style="font-size:12px;color:#e64340;margin-top:6px;">` +
+          errors.map(e => `<div>第${e.row}行：${escapeHtml(e.error)}</div>`).join('') + `</div>` : '');
+      loadStaff();
+    } catch (e) {
+      box.innerHTML = '<div class="success-tip"><p>' + escapeHtml(e.message === 'NEED_LOGIN' ? '登录已过期' : '解析失败，请检查 CSV 格式') + '</p></div>';
+    } finally {
+      input.value = '';
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+// 简易 CSV 解析（支持逗号分隔与双引号包裹）
+function parseCsv(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ',') {
+      row.push(field); field = '';
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(field); field = '';
+      if (row.some(x => x !== '')) rows.push(row);
+      row = [];
+    } else {
+      field += c;
+    }
+  }
+  if (field !== '' || row.length) { row.push(field); if (row.some(x => x !== '')) rows.push(row); }
+  return rows;
+}
+
+/* ============ 角色与门店切换（super 管全部，store 限本店） ============ */
+let adminRole = 'store';
+let adminStoreCode = '';   // 当前管理目标门店编码
+let myStoreName = '';      // 当前登录账号的门店名
+let editingActivityId = null;
+
+// 顶部门店名：跟随登录账号（店长）/ 所选门店（总管理员）
+function updateTopbarStoreName() {
+  const el = document.getElementById('storeName');
+  if (!el) return;
+  if (adminRole === 'super') {
+    const sel = document.getElementById('storeSelector');
+    const opt = sel && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
+    el.textContent = opt ? opt.text.split(' (')[0] : (myStoreName || '门店管理后台');
+  } else {
+    el.textContent = myStoreName || '门店管理后台';
+  }
+}
+
+// 登录成功后初始化角色界面
+function initAdminUI(role, storeCode, storeName) {
+  adminRole = role || 'store';
+  adminStoreCode = storeCode || '';
+  myStoreName = storeName || '';
+  const sel = document.getElementById('storeSelector');
+  if (adminRole === 'super') {
+    sel.style.display = '';
+    // 门店下拉：从员工列表取所有门店
+    apiFetch('/api/admin/staff').then(r => r.json()).then(d => {
+      const stores = (d.staff || []).map(x => ({ code: x.store.code, name: x.store.name }))
+        .filter((v, i, a) => a.findIndex(y => y.code === v.code) === i);
+      sel.innerHTML = stores.map(x => `<option value="${escapeHtml(x.code)}">${escapeHtml(x.name)} (${escapeHtml(x.code)})</option>`).join('');
+      sel.value = adminStoreCode;
+      updateTopbarStoreName();
+    }).catch(() => {});
+  } else {
+    sel.style.display = 'none';
+    updateTopbarStoreName();
+  }
+  const btnSync = document.getElementById('btnSyncActivities');
+  if (btnSync) btnSync.style.display = (adminRole === 'super') ? '' : 'none';
+  // 店长隐藏「添加员工/批量导入」（仅总管理员可用）
+  const addArea = document.getElementById('staffAddArea');
+  const impArea = document.getElementById('staffImportArea');
+  if (addArea) addArea.style.display = (adminRole === 'super') ? '' : 'none';
+  if (impArea) impArea.style.display = (adminRole === 'super') ? '' : 'none';
+  loadActivities();
+  updateActStoreLabel();
+}
+
+function switchAdminStore() {
+  adminStoreCode = document.getElementById('storeSelector').value;
+  updateTopbarStoreName();
+  loadActivities();
+  updateActStoreLabel();
+  refreshAll();
+}
+
+function updateActStoreLabel() {
+  const sel = document.getElementById('storeSelector');
+  const label = document.getElementById('actStoreLabel');
+  if (!label) return;
+  if (!sel) { label.textContent = '本门店活动'; return; }
+  if (adminRole === 'super') {
+    const opt = sel.options[sel.selectedIndex];
+    label.textContent = opt ? `当前门店：${opt.text}` : '';
+  } else {
+    label.textContent = '本门店活动';
+  }
+}
+
+// 顶部标签页切换（签到 / 活动管理 / 顾客查询）
+function switchQuickTab(name) {
+  document.querySelectorAll('.quick-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.quick-pane').forEach(p => p.style.display = p.id === 'pane-' + name ? '' : 'none');
+}
+
+// 打开活动管理（切到活动标签）
+function openActivities() {
+  switchQuickTab('activities');
+  loadActivities();
+  document.getElementById('pane-activities').scrollIntoView({ behavior: 'smooth' });
+}
+
+/* ============ 活动管理 ============ */
+async function loadActivities() {
+  try {
+    const url = '/api/admin/activities' + (adminStoreCode ? '?store=' + encodeURIComponent(adminStoreCode) : '');
+    const res = await apiFetch(url);
+    const d = await res.json();
+    const acts = d.activities || [];
+    const lbl = document.getElementById('actStoreLabel');
+    if (lbl) lbl.textContent = '当前门店：' + d.storeCode + '（' + acts.length + ' 个活动）';
+    // 一键同步按钮跟随活动出现（仅总管理员，且至少有 1 个活动可同步）
+    const btnSync = document.getElementById('btnSyncActivities');
+    if (btnSync) btnSync.style.display = (adminRole === 'super' && acts.length > 0) ? '' : 'none';
+    const listEl = document.getElementById('activitiesList');
+    if (!listEl) return;
+    listEl.innerHTML = acts.length
+      ? acts.map(a => `
+        <div style="border:1px solid #eee;border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <div>
+            <strong>${escapeHtml(a.title)}</strong>
+            <span style="margin-left:8px;font-size:12px;padding:1px 8px;border-radius:8px;${a.enabled !== false ? 'background:#f0f9f4;color:#389e0d;' : 'background:#f5f5f5;color:#999;'}">${a.enabled !== false ? '启用中' : '已停用'}</span>
+            <div style="font-size:12px;color:#999;margin-top:4px;">${(a.slots || []).length} 个时段 · 每时段 ${a.maxPerSlot} 组</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn btn-sm btn-outline" onclick="openActivityQr('${a.id}','${escapeHtml(a.title)}')">二维码/链接</button>
+            <button class="btn btn-sm btn-outline" onclick="openActivityModal('${a.id}')">编辑</button>
+            <button class="btn btn-sm btn-outline" onclick="toggleActivity('${a.id}', ${a.enabled !== false ? 'false' : 'true'})">${a.enabled !== false ? '停用' : '启用'}</button>
+            <button class="btn btn-sm btn-outline btn-danger-outline" onclick="deleteActivity('${a.id}','${escapeHtml(a.title)}')">删除</button>
+          </div>
+        </div>`).join('')
+      : '<div class="queue-empty">暂无活动，点击下方「新增活动」创建</div>';
+  } catch (e) { if (e.message !== 'NEED_LOGIN') console.error(e); }
+}
+
+// 打开活动编辑弹窗（actId 为空 → 新增）
+function openActivityModal(actId) {
+  editingActivityId = actId || null;
+  document.getElementById('activityModalTitle').textContent = actId ? '🎪 编辑活动' : '🎪 新增活动';
+  document.getElementById('actTitle').value = '';
+  document.getElementById('actAddr').value = '';
+  document.getElementById('actMax').value = 1;
+  document.getElementById('actEnabled').checked = true;
+  hideError('actError');
+  if (actId) {
+    apiFetch('/api/admin/activities' + (adminStoreCode ? '?store=' + encodeURIComponent(adminStoreCode) : ''))
+      .then(r => r.json())
+      .then(d => {
+        const a = (d.activities || []).find(x => x.id === actId);
+        if (!a) return alert('活动不存在');
+        document.getElementById('actTitle').value = a.title || '';
+        document.getElementById('actAddr').value = a.address || '';
+        document.getElementById('actMax').value = a.maxPerSlot || 1;
+        document.getElementById('actEnabled').checked = a.enabled !== false;
+        renderActSlotRows(a.slots || []);
+        document.getElementById('activityModal').style.display = '';
+      })
+      .catch(() => alert('加载活动失败'));
+  } else {
+    renderActSlotRows(DEFAULT_SLOTS);
+    document.getElementById('activityModal').style.display = '';
+  }
+}
+
+const DEFAULT_SLOTS = (() => {
+  const slots = [];
+  let h = 10, m = 0;
+  const pad = v => String(v).padStart(2, '0');
+  while (h * 60 + m < 22 * 60) {
+    const nm = m + 20; const nh = nm >= 60 ? h + 1 : h; const mm = nm >= 60 ? nm - 60 : nm;
+    slots.push(`${pad(h)}:${pad(m)}-${pad(nh)}:${pad(mm)}`);
+    h = nh; m = mm;
+  }
+  return slots;
+})();
+
+function closeActivityModal() {
+  document.getElementById('activityModal').style.display = 'none';
+  editingActivityId = null;
+}
+
+function renderActSlotRows(slots) {
+  const box = document.getElementById('actSlotsList');
+  box.innerHTML = slots.map(slot => `
+    <div style="display:flex;gap:8px;margin-bottom:6px;">
+      <input type="text" class="form-input act-slot" value="${escapeHtml(slot)}" style="flex:1;">
+      <button class="btn btn-sm btn-outline btn-danger-outline" onclick="removeActSlotRow(this)">删除</button>
+    </div>`).join('') || '<div class="queue-empty">暂无时段，请添加</div>';
+}
+
+function addActSlotRow() {
+  const v = document.getElementById('actSlotNew').value.trim();
+  if (!/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(v)) return alert('时段格式应为 HH:MM-HH:MM，如 10:00-10:20');
+  const box = document.getElementById('actSlotsList');
+  const empty = box.querySelector('.queue-empty');
+  if (empty) box.innerHTML = '';
+  box.insertAdjacentHTML('beforeend', `
+    <div style="display:flex;gap:8px;margin-bottom:6px;">
+      <input type="text" class="form-input act-slot" value="${escapeHtml(v)}" style="flex:1;">
+      <button class="btn btn-sm btn-outline btn-danger-outline" onclick="removeActSlotRow(this)">删除</button>
+    </div>`);
+  document.getElementById('actSlotNew').value = '';
+}
+
+function removeActSlotRow(btn) {
+  const row = btn.closest('div');
+  row.parentNode.removeChild(row);
+}
+
+async function saveActivityConfig() {
+  const title = document.getElementById('actTitle').value.trim();
+  const address = document.getElementById('actAddr').value.trim();
+  const maxPerSlot = parseInt(document.getElementById('actMax').value) || 1;
+  const enabled = document.getElementById('actEnabled').checked;
+  const slots = [...document.querySelectorAll('.act-slot')].map(i => i.value.trim()).filter(Boolean);
+  if (!title) return showError('actError', '请填写活动标题');
+  if (slots.length === 0) return showError('actError', '请至少添加一个时段');
+  for (const s of slots) {
+    if (!/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(s)) return showError('actError', `时段格式错误：${s}`);
+  }
+  const body = { title, address, slots, maxPerSlot, enabled };
+  try {
+    const url = '/api/admin/activities' + (adminStoreCode ? '?store=' + encodeURIComponent(adminStoreCode) : '');
+    const res = editingActivityId
+      ? await apiFetch('/api/admin/activities/' + editingActivityId, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      : await apiFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const d = await res.json();
+    if (!res.ok) { showError('actError', d.error || '保存失败'); return; }
+    closeActivityModal();
+    loadActivities();
+    refreshAll();
+  } catch (e) { if (e.message !== 'NEED_LOGIN') showError('actError', '保存失败'); }
+}
+
+async function toggleActivity(actId, enabled) {
+  try {
+    const res = await apiFetch('/api/admin/activities/' + actId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled })
+    });
+    const d = await res.json();
+    if (!res.ok) { alert(d.error || '操作失败'); return; }
+    loadActivities();
+  } catch (e) { if (e.message !== 'NEED_LOGIN') alert('操作失败'); }
+}
+
+async function deleteActivity(actId, title) {
+  if (!confirm(`确定要删除活动「${title}」吗？`)) return;
+  try {
+    const res = await apiFetch('/api/admin/activities/' + actId, { method: 'DELETE' });
+    const d = await res.json();
+    if (!res.ok) { alert(d.error || '删除失败'); return; }
+    loadActivities();
+  } catch (e) { if (e.message !== 'NEED_LOGIN') alert('删除失败'); }
+}
+
+/* ===== 角色切换（总管理员） ===== */
+async function toggleStaffRole(id, role, username) {
+  if (!confirm(`将「${username}」设为${role === 'super' ? '总管理员' : '门店管理员'}？`)) return;
+  try {
+    const res = await apiFetch('/api/admin/staff/' + id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role })
+    });
+    const d = await res.json();
+    if (!res.ok) { alert(d.error || '操作失败'); return; }
+    loadStaff();
+  } catch (e) { if (e.message !== 'NEED_LOGIN') alert('操作失败'); }
+}
+
+async function saveStaffPhone(id) {
+  const phone = document.getElementById('staffPhone_' + id).value.trim();
+  if (!/^1[3-9]\d{9}$/.test(phone)) return alert('手机号格式不正确');
+  try {
+    const res = await apiFetch('/api/admin/staff/' + id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone })
+    });
+    const d = await res.json();
+    if (!res.ok) { alert(d.error || '保存失败'); return; }
+    alert('手机号已保存');
+  } catch (e) { if (e.message !== 'NEED_LOGIN') alert('保存失败'); }
+}
+
+async function addStaff() {
+  const username = document.getElementById('staffUsername').value.trim();
+  const password = document.getElementById('staffPassword').value;
+  const phone = document.getElementById('staffPhone').value.trim();
+  const storeCode = document.getElementById('staffStoreCode').value.trim();
+  const storeName = document.getElementById('staffStoreName').value.trim();
+  const role = document.getElementById('staffRole').value;
+  if (!username || !password) return alert('请填写账号和密码');
+  try {
+    const res = await apiFetch('/api/admin/staff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username, password, phone, role,
+        store: { code: storeCode, name: storeName }
+      })
+    });
+    const d = await res.json();
+    if (!res.ok) { alert(d.error || '添加失败'); return; }
+    document.getElementById('staffUsername').value = '';
+    document.getElementById('staffPassword').value = '';
+    document.getElementById('staffPhone').value = '';
+    document.getElementById('staffStoreCode').value = '';
+    document.getElementById('staffStoreName').value = '';
+    alert('员工已添加，请点「配置门店」完善标题/地址/时段');
+    loadStaff();
+  } catch (e) { if (e.message !== 'NEED_LOGIN') alert('添加失败'); }
+}
+
+async function removeStaff(id, username) {
+  if (!confirm(`确定要删除员工「${username}」吗？`)) return;
+  try {
+    const res = await apiFetch('/api/admin/staff/' + id, { method: 'DELETE' });
+    const d = await res.json();
+    if (!res.ok) { alert(d.error || '删除失败'); return; }
+    alert('已删除');
+    loadStaff();
+  } catch (e) { if (e.message !== 'NEED_LOGIN') alert('删除失败'); }
+}
+
+document.getElementById('loginPassword').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+document.getElementById('loginUsername').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('loginPassword').focus();
+});
+
 /* ============ 全局状态 ============ */
 let currentCheckinTab = 'phone';
 let listFilter = '';
-let filterDate = new Date().toISOString().split('T')[0];
 let rescheduleCode = null;
-const today = new Date().toISOString().split('T')[0];
+const today = getLocalToday();
+
+// 本地时区日期（Asia/Shanghai）
+function getLocalToday() {
+  const d = new Date();
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(d);
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
 
 /* ============ 初始化 ============ */
 async function init() {
@@ -190,8 +1220,17 @@ async function init() {
     const d = await res.json();
     document.getElementById('storeName').textContent = d.storeName;
   } catch (e) { /* ignore */ }
+  updateUnlockUI();
+  // 页面刷新且已有登录态：通过 /api/admin/staff 探测角色
+  if (adminToken) {
+    try {
+      const r = await apiFetch('/api/admin/staff');
+      const d = await r.json();
+      initAdminUI(d.role, d.staff && d.staff[0] && d.staff[0].store ? d.staff[0].store.code : '', d.staff && d.staff[0] && d.staff[0].store ? d.staff[0].store.name : '');
+    } catch (e) { /* 未登录 */ }
+  }
   await refreshAll();
-  setInterval(refreshAll, 30000);
+  setInterval(refreshAll, 60000);
 }
 
 /* ============ 签到 Tab 切换 ============ */
@@ -219,7 +1258,7 @@ async function doCheckinPhone() {
   hideError('checkinPhoneError');
 
   try {
-    const res = await fetch('/api/checkin', {
+    const res = await apiFetch('/api/checkin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone })
@@ -245,7 +1284,7 @@ async function doCheckinCode() {
   hideError('checkinCodeError');
 
   try {
-    const res = await fetch('/api/checkin', {
+    const res = await apiFetch('/api/checkin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ signinCode })
@@ -340,7 +1379,7 @@ function onScanSuccess(decodedText) {
 async function doScanCheckin(code) {
   hideError('checkinScanError');
   try {
-    const res = await fetch('/api/checkin', {
+    const res = await apiFetch('/api/checkin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code })
@@ -361,12 +1400,12 @@ async function stopScanner() {
 
 /* ============ 管理看板 ============ */
 async function refreshAll() {
-  await Promise.all([loadStats(), loadQueue(), loadList()]);
+  await Promise.all([loadStats(), loadQueue(), loadList(), loadStaff()]);
 }
 
 async function loadStats() {
   try {
-    const res = await fetch('/api/admin/stats?date=' + today);
+    const res = await apiFetch('/api/admin/stats?date=' + today);
     const d = await res.json();
     document.getElementById('statsGrid').innerHTML = `
       <div class="stat-card total"><div class="stat-num">${d.total}</div><div class="stat-label">今日预约</div></div>
@@ -379,12 +1418,14 @@ async function loadStats() {
 
 async function loadQueue() {
   try {
-    const res = await fetch('/api/admin/queue');
+    const res = await apiFetch('/api/admin/queue');
     const d = await res.json();
 
     // 姓名脱敏 + 手机号（前3位+**+后2位）
     function maskName(name) { return name ? name[0] + '**' : '***'; }
     function phoneMask(phone) { return phone ? phone.slice(0,3) + '**' + phone.slice(-2) : '------'; }
+    // 完整手机号（已解锁时接口返回 11 位）直接显示，否则脱敏
+    function showPhone(phone) { return /^1\d{10}$/.test(phone || '') ? phone : phoneMask(phone); }
 
     // 等待签到：按时段分组
     if (d.pending.length === 0) {
@@ -402,7 +1443,7 @@ async function loadQueue() {
             ${list.map(r => `<div class="queue-item">
               <div>
                 <span class="queue-name">${maskName(r.name)}</span>
-                <span class="queue-meta">${r.partySize}人 · ${phoneMask(r.phone)}</span>
+                <span class="queue-meta">${r.partySize}人 · ${showPhone(r.phone)}</span>
               </div>
             </div>`).join('')}
           </div>
@@ -414,7 +1455,7 @@ async function loadQueue() {
       : d.checkedIn.map((r, i) => `<div class="queue-item">
           <div>
             <span class="queue-name">${maskName(r.name)}</span>
-            <span class="queue-meta">${r.partySize}人 · ${phoneMask(r.phone)} · ${r.timeSlot}</span>
+            <span class="queue-meta">${r.partySize}人 · ${showPhone(r.phone)} · ${r.timeSlot}</span>
           </div>
           <span class="queue-badge arrived"># ${i + 1}</span>
         </div>`).join('');
@@ -425,7 +1466,7 @@ async function loadList() {
   try {
     let url = '/api/admin/reservations?date=' + filterDate;
     if (listFilter) url += '&status=' + listFilter;
-    const res = await fetch(url);
+    const res = await apiFetch(url);
     const d = await res.json();
 
     const tbody = document.getElementById('tableBody');
@@ -445,20 +1486,35 @@ async function loadList() {
       const t = r.checkedInAt
         ? new Date(r.checkedInAt).toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' })
         : '-';
+      // 用 data-* 属性传参 + 事件委托，避免姓名含引号破坏 onclick（XSS 防护）
       const actions = r.status === 'pending'
-        ? `<button class="btn btn-sm btn-outline" onclick="openReschedule('${r.code}','${r.name}','${r.date}','${r.timeSlot}')">改签</button>
-           <button class="btn btn-sm btn-outline btn-danger-outline" onclick="cancelReservation('${r.code}','${r.name}')">取消</button>`
+        ? `<button class="btn btn-sm btn-outline" data-action="reschedule" data-code="${r.code}" data-name="${escapeHtml(r.name)}" data-date="${r.date}" data-slot="${r.timeSlot}">改签</button>
+           <button class="btn btn-sm btn-outline btn-danger-outline" data-action="cancel" data-code="${r.code}" data-name="${escapeHtml(r.name)}">取消</button>`
         : '<span style="color:var(--text-tertiary);font-size:12px;">--</span>';
       return `<tr>
         <td><code style="color:var(--primary);">${r.code}</code></td>
-        <td>${maskName(r.name)}</td><td>${phoneMask(r.phone)}</td><td>${r.partySize}人</td>
-        <td>${r.timeSlot}</td><td style="font-size:12px;">${r.scene || '-'}</td><td>#${r.queueNumber}</td>
-        <td>${statusMap[r.status]}</td><td>${t}</td>
+        <td>${maskName(r.name)}</td><td>${r.phoneUnlocked ? r.phone : phoneMask(r.phone)}</td><td>${r.partySize}人</td>
+        <td>${escapeHtml(r.timeSlot)}</td><td style="font-size:12px;">${escapeHtml(r.scene) || '-'}</td><td>#${r.queueNumber}</td>
+        <td>${statusMap[r.status] || '<span class="status-tag">' + escapeHtml(r.status) + '</span>'}</td><td>${t}</td>
         <td>${actions}</td>
       </tr>`;
     }).join('');
-  } catch (e) { console.error(e); }
+  } catch (e) { if (e.message !== 'NEED_LOGIN') console.error(e); }
 }
+
+// 表格操作按钮事件委托（改签/取消）
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.dataset.action;
+  const code = btn.dataset.code;
+  const name = btn.dataset.name;
+  if (action === 'reschedule') {
+    openReschedule(code, name, btn.dataset.date, btn.dataset.slot);
+  } else if (action === 'cancel') {
+    cancelReservation(code, name);
+  }
+});
 
 function filterList(status, el) {
   listFilter = status;
@@ -540,7 +1596,7 @@ async function doReschedule() {
   hideError('rescheduleError');
 
   try {
-    const res = await fetch('/api/admin/reservation/' + rescheduleCode, {
+    const res = await apiFetch('/api/admin/reservation/' + rescheduleCode, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ date, timeSlot })
@@ -561,7 +1617,7 @@ async function cancelReservation(code, name) {
   if (!confirm(`确定要取消「${name}」的预约吗？\n取消后该时段将恢复可用。`)) return;
 
   try {
-    const res = await fetch('/api/admin/reservation/' + code, { method: 'DELETE' });
+    const res = await apiFetch('/api/admin/reservation/' + code, { method: 'DELETE' });
     const data = await res.json();
     if (!res.ok) { alert(data.error); return; }
     alert(data.message);
@@ -570,6 +1626,44 @@ async function cancelReservation(code, name) {
     alert('网络异常，请重试');
   }
 }
+
+/* ============ 顾客查询（按手机号，管理员登录后可用） ============ */
+async function doAdminLookup() {
+  const phone = document.getElementById('lookupPhoneInput').value.trim();
+  if (!/^1[3-9]\d{9}$/.test(phone)) return showError('lookupPhoneError', '请输入正确的11位手机号');
+  hideError('lookupPhoneError');
+  const btn = document.getElementById('btnLookupPhone');
+  const box = document.getElementById('lookupPhoneResult');
+  btn.disabled = true; btn.textContent = '查询中…';
+  box.innerHTML = '<div class="queue-empty">查询中…</div>';
+  try {
+    const res = await apiFetch('/api/admin/customer/' + encodeURIComponent(phone));
+    const d = await res.json();
+    if (!res.ok) { box.innerHTML = `<div class="success-tip"><p>${escapeHtml(d.error || '查询失败')}</p></div>`; return; }
+    const list = d.reservations || [];
+    if (!list.length) { box.innerHTML = '<div class="success-tip"><p>该手机号暂无预约</p></div>'; return; }
+    const statusMap = { pending: '待签到', checked_in: '已签到', cancelled: '已取消' };
+    box.innerHTML = list.map(r => `
+      <div class="lookup-card" style="border:1px solid #eee;border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <strong>${escapeHtml(r.name)} · ${escapeHtml(r.date)} ${escapeHtml(r.timeSlot)}</strong>
+          <span class="status-tag ${r.status}">${statusMap[r.status] || escapeHtml(r.status)}</span>
+        </div>
+        <div style="font-size:13px;color:#666;">
+          ${r.partySize}人 · 排队第${r.queueNumber}位 · 手机 ${escapeHtml(r.phone)}
+          <span style="margin-left:12px;">码 ${escapeHtml(r.code)}</span>
+        </div>
+      </div>`).join('');
+  } catch (e) {
+    if (e.message !== 'NEED_LOGIN') box.innerHTML = '<div class="success-tip"><p>网络异常，请重试</p></div>';
+  } finally {
+    btn.disabled = false; btn.textContent = '查询';
+  }
+}
+
+document.getElementById('lookupPhoneInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doAdminLookup();
+});
 
 /* ============ 工具 ============ */
 function showError(id, msg) {

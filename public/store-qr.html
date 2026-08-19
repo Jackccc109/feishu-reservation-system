@@ -148,7 +148,7 @@
 
   <div class="header">
     <h1>门店二维码</h1>
-    <div class="store-name">武汉光谷旗舰店</div>
+    <div class="store-name" id="storeName">预约签到系统</div>
   </div>
 
   <div class="container">
@@ -193,17 +193,27 @@
   </div>
 
   <script>
-  /* ============ 加载二维码 ============ */
+  /* ============ 加载二维码（支持 ?store= 门店参数） ============ */
+  const storeCode = new URLSearchParams(location.search).get('store') || '';
+
   async function init() {
+    const apiUrl = (u) => storeCode ? u + (u.includes('?') ? '&' : '?') + 'store=' + encodeURIComponent(storeCode) : u;
     try {
-      const res = await fetch('/api/store-qr');
+      // 门店名从 /api/settings 动态读取
+      const sRes = await fetch(apiUrl('/api/settings'));
+      const sData = await sRes.json();
+      if (sData.storeName) document.getElementById('storeName').textContent = sData.storeName;
+    } catch (e) { /* 保留默认值 */ }
+
+    try {
+      const res = await fetch(apiUrl('/api/store-qr'));
       const data = await res.json();
 
       document.getElementById('qrReserve').src = data.reserve;
       document.getElementById('qrCheckin').src = data.checkin;
 
-      document.getElementById('urlReserve').textContent = window.location.origin + '/';
-      document.getElementById('urlCheckin').textContent = window.location.origin + '/checkin';
+      document.getElementById('urlReserve').textContent = window.location.origin + '/?store=' + (data.storeCode || storeCode);
+      document.getElementById('urlCheckin').textContent = window.location.origin + '/admin';
 
       window._qrData = data;
     } catch (e) {

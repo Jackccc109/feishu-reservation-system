@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>预约签到</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/html5-qrcode.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <!-- ========== 顶部 ========== -->
+  <div class="topbar topbar-admin">
+    <div class="topbar-brand" id="storeName">到店签到</div>
+    <div class="topbar-addr">选择一种方式完成签到</div>
+  </div>
+
+  <div class="all-in-one">
+    <section class="panel" id="panel-checkin">
+      <div class="panel-header">
+        <span class="step-badge">✓</span>
+        <h2>客户签到</h2>
+        <span class="panel-sub">三种方式任选其一</span>
+      </div>
+      <div class="panel-body">
+        <!-- 签到方式Tab -->
+        <div class="checkin-tabs" id="checkinTabs">
+          <button class="checkin-tab active" data-tab="phone" onclick="switchCheckinTab('phone')">📱 手机尾号</button>
+          <button class="checkin-tab" data-tab="code" onclick="switchCheckinTab('code')">🔢 验证码</button>
+          <button class="checkin-tab" data-tab="scan" onclick="switchCheckinTab('scan')">📷 扫一扫</button>
+        </div>
+
+        <!-- 方式1：手机尾号 -->
+        <div class="checkin-method" id="checkinPhone">
+          <p class="checkin-method-desc">输入预约时填写的手机号后4位</p>
+          <div class="checkin-row">
+            <input type="text" id="inputPhone" class="form-input checkin-input"
+              placeholder="手机尾号后4位" maxlength="4" autocomplete="off" inputmode="numeric"
+              style="font-size:22px !important; letter-spacing:4px !important;">
+            <button class="btn btn-success" id="btnCheckinPhone" onclick="doCheckinPhone()">确认签到</button>
+          </div>
+          <div class="form-error" id="checkinPhoneError"></div>
+        </div>
+
+        <!-- 方式2：6位签到验证码 -->
+        <div class="checkin-method" id="checkinCode" style="display:none;">
+          <p class="checkin-method-desc">输入预约成功页上的6位签到验证码</p>
+          <div class="checkin-row">
+            <input type="text" id="inputSigninCode" class="form-input checkin-input"
+              placeholder="输入6位签到验证码" maxlength="6" autocomplete="off"
+              style="font-size:22px !important; letter-spacing:8px !important;">
+            <button class="btn btn-success" id="btnCheckinCode" onclick="doCheckinCode()">确认签到</button>
+          </div>
+          <div class="form-error" id="checkinCodeError"></div>
+        </div>
+
+        <!-- 方式3：扫一扫 -->
+        <div class="checkin-method" id="checkinScan" style="display:none;">
+          <p class="checkin-method-desc">扫描预约成功页上的二维码</p>
+          <input type="file" id="qrFileInput" accept="image/*" capture="environment"
+            style="display:none;" onchange="handleQrImage(this)">
+          <button class="btn btn-scan btn-block" id="btnScan" onclick="startScanner()"
+            style="padding:16px;font-size:16px;">
+            📷 拍照识别二维码
+          </button>
+          <div id="scannerArea" style="display:none;">
+            <p style="text-align:center;color:var(--text-secondary);margin:12px 0;">
+              📸 <span id="scanStatus">正在识别二维码…</span>
+            </p>
+          </div>
+          <div class="form-error" id="checkinScanError"></div>
+        </div>
+
+        <div class="checkin-result" id="checkinResult"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+let currentCheckinTab = 'phone';
+
+/* ============ 初始化 ============ */
+async function init() {
+  try {
+    const res = await fetch('/api/settings');
+    const d = await res.json();
+    document.getElementById('storeName').textContent = d.storeName + ' · 到店签到';
+  } catch (e) { /* ignore */ }
+
+  // 支持 ?code=XXX 直达：扫码打开后自动签到
+  const params = new URLSearchParams(location.search);
+  const code = params.get('code');
+  if (code && /^[A-Z0-9]{6}$/i.test(code)) {
+    document.getElementById('checkinTabs').style.display = 'none';
+    doScanCheckin(code.toUpperCase());
+  }
+}
+
+/* ============ Tab 切换 ============ */
+function switchCheckinTab(tab) {
+  currentCheckinTab = tab;
+  document.querySelectorAll('.checkin-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.checkin-tab[data-tab="${tab}"]`).classList.add('active');
+  document.querySelectorAll('.checkin-method').forEach(m => m.style.display = 'none');
+  const methodMap = { phone: 'checkinPhone', code: 'checkinCode', scan: 'checkinScan' };
+  document.getElementById(methodMap[tab]).style.display = '';
+  document.getElementById('checkinResult').className = 'checkin-result';
+  document.querySelectorAll('.form-error').forEach(e => e.classList.remove('show'));
+}
+
+/* ============ 方式1：手机尾号 ============ */
+async function doCheckinPhone() {
+  const phone = document.getElementById('inputPhone').value.trim();
+  if (!phone) return showError('checkinPhoneError', '请输入手机尾号后4位');
+  if (!/^\d{4}$/.test(phone)) return showError('checkinPhoneError', '请输入4位数字');
+
+  const btn = document.getElementById('btnCheckinPhone');
+  btn.disabled = true; btn.textContent = '签到中…';
+  hideError('checkinPhoneError');
+
+  try {
+    const res = await fetch('/api/checkin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone })
+    });
+    const data = await res.json();
+    showCheckinResult(res.ok, data);
+    if (res.ok) document.getElementById('inputPhone').value = '';
+  } catch (e) {
+    showCheckinResult(false, { error: '网络异常' });
+  }
+
+  btn.disabled = false; btn.textContent = '确认签到';
+}
+
+/* ============ 方式2：验证码 ============ */
+async function doCheckinCode() {
+  const signinCode = document.getElementById('inputSigninCode').value.trim();
+  if (!signinCode) return showError('checkinCodeError', '请输入签到验证码');
+
+  const btn = document.getElementById('btnCheckinCode');
+  btn.disabled = true; btn.textContent = '签到中…';
+  hideError('checkinCodeError');
+
+  try {
+    const res = await fetch('/api/checkin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ signinCode: signinCode.toUpperCase() })
+    });
+    const data = await res.json();
+    showCheckinResult(res.ok, data);
+    if (res.ok) document.getElementById('inputSigninCode').value = '';
+  } catch (e) {
+    showCheckinResult(false, { error: '网络异常' });
+  }
+
+  btn.disabled = false; btn.textContent = '确认签到';
+}
+
+/* ============ 结果展示 ============ */
+function showCheckinResult(success, data) {
+  const el = document.getElementById('checkinResult');
+  if (success) {
+    const r = data.reservation;
+    el.className = 'checkin-result show success';
+    el.innerHTML = `
+      <div class="result-icon">✅</div>
+      <div class="result-title">签到成功</div>
+      <div class="result-desc">${escapeHtml(r.name)} · ${r.partySize}人 · ${escapeHtml(r.timeSlot)}</div>
+    `;
+  } else {
+    el.className = 'checkin-result show error';
+    el.innerHTML = `
+      <div class="result-icon">❌</div>
+      <div class="result-title">签到失败</div>
+      <div class="result-desc">${escapeHtml(data.error || '未知错误')}</div>
+    `;
+  }
+  el.scrollIntoView({ behavior: 'smooth' });
+}
+
+/* ============ 方式3：扫码 ============ */
+function startScanner() {
+  document.getElementById('qrFileInput').click();
+}
+
+async function handleQrImage(input) {
+  if (!input.files || input.files.length === 0) return;
+
+  const area = document.getElementById('scannerArea');
+  const status = document.getElementById('scanStatus');
+  area.style.display = '';
+  status.textContent = '正在识别二维码…';
+  document.getElementById('btnScan').disabled = true;
+
+  try {
+    const file = input.files[0];
+    const result = await new Promise((resolve, reject) => {
+      const scanner = new Html5Qrcode('scannerArea');
+      scanner.scanFile(file, true)
+        .then(text => { scanner.clear(); resolve(text); })
+        .catch(err => { scanner.clear(); reject(err); });
+    });
+    onScanSuccess(result);
+  } catch (err) {
+    console.error('二维码识别失败:', err);
+    status.textContent = '未识别到二维码，请重试';
+    document.getElementById('btnScan').disabled = false;
+    area.style.display = 'none';
+  }
+
+  input.value = '';
+}
+
+function onScanSuccess(decodedText) {
+  let code = decodedText.trim();
+  try {
+    const url = new URL(code);
+    code = url.searchParams.get('code') || code;
+  } catch (e) { /* not a URL */ }
+
+  if (!code || code.length < 6) {
+    code = code.replace(/[^A-Z0-9]/gi, '').slice(-6);
+  }
+
+  doScanCheckin(code);
+}
+
+async function doScanCheckin(code) {
+  hideError('checkinScanError');
+  try {
+    const res = await fetch('/api/checkin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: code.toUpperCase() })
+    });
+    const data = await res.json();
+    showCheckinResult(res.ok, data);
+  } catch (e) {
+    showCheckinResult(false, { error: '网络异常' });
+  }
+}
+
+/* ============ 工具 ============ */
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function hideError(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('inputPhone').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doCheckinPhone();
+  });
+  document.getElementById('inputSigninCode').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doCheckinCode();
+  });
+});
+</script>
+</body>
+</html>

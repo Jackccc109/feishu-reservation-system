@@ -31,7 +31,7 @@
     }
   },
   "compileType": "miniprogram",
-  "libVersion": "3.0.0",
+  "libVersion": "3.17.0",
   "appid": "wx35b058f285db65a2",
   "projectname": "feishu-reservation-miniprogram",
   "condition": {},
