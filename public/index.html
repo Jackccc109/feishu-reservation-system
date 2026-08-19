@@ -341,7 +341,7 @@ async function loadSettings() {
     const addr = (d.activity && d.activity.address) || d.storeAddress || '';
     document.getElementById('storeAddr').textContent = d.storeName + (addr ? ' · ' + addr : '');
     activities = d.activities || [];
-    storePhone = d.storePhone || '';
+    storePhone = d.contact || d.storePhone || ''; // 活动联系方式优先，默认门店电话
     renderContactPhone();
     applyBackground(d.activity && d.activity.background);
     // 活动选择器（多活动时显示）
@@ -370,6 +370,8 @@ async function switchActivity(id) {
   activityCode = id;
   renderActivityPicker();
   const d = await (await fetch(withStore('/api/settings'))).json();
+  storePhone = d.contact || d.storePhone || '';
+  renderContactPhone();
   document.getElementById('storeName').textContent = (d.activity && d.activity.title) || d.storeName;
   const addr = (d.activity && d.activity.address) || d.storeAddress || '';
   document.getElementById('storeAddr').textContent = d.storeName + (addr ? ' · ' + addr : '');

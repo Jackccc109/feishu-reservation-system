@@ -404,6 +404,10 @@
         <input type="text" id="actAddr" class="form-input" placeholder="门店地址（可选）">
       </div>
       <div class="form-group">
+        <label class="form-label">联系方式（顾客页展示，留空=用门店电话）</label>
+        <input type="tel" id="actContact" class="form-input" placeholder="如 027-88886666">
+      </div>
+      <div class="form-group">
         <label class="form-label">每时段最大预约组数</label>
         <input type="number" id="actMax" class="form-input" min="1" max="99" value="1">
       </div>
@@ -416,9 +420,17 @@
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">顾客页背景（图片URL 或颜色值）</label>
-        <input type="text" id="actBg" class="form-input" placeholder="如 https://xxx.com/bg.jpg 或 #f0f7ff（留空=默认）">
-        <div style="font-size:12px;color:#999;margin-top:6px;">图片建议竖屏 750x1334 以上；可配渐变背景如 linear-gradient(135deg,#e8f4fd,#f9e7e0)</div>
+        <label class="form-label">顾客页背景</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <label class="btn btn-outline btn-sm" style="cursor:pointer;margin:0;">🖼 上传图片
+            <input type="file" id="actBgFile" accept="image/*" style="display:none;" onchange="uploadActBg(this)">
+          </label>
+          <input type="color" id="actBgColor" value="#f0f7ff" title="选择纯色" onchange="document.getElementById('actBg').value=this.value;previewActBg()" style="width:36px;height:32px;border:none;cursor:pointer;background:none;">
+          <span style="font-size:12px;color:#999;">或填链接/渐变：</span>
+          <input type="text" id="actBg" class="form-input" placeholder="图片URL / 颜色 / 渐变，留空=默认" style="flex:1;min-width:180px;" oninput="previewActBg()">
+        </div>
+        <div id="actBgPreview" style="margin-top:8px;height:64px;border-radius:8px;border:1px solid #eee;background-size:cover;background-position:center;"></div>
+        <div style="font-size:12px;color:#999;margin-top:6px;">上传图片建议竖屏 750x1334 以上、2MB 以内；点色块选纯色</div>
       </div>
       <label style="display:flex;align-items:center;gap:8px;margin-top:12px;">
         <input type="checkbox" id="actEnabled" checked> 启用该活动（顾客端可见）
@@ -1135,9 +1147,11 @@ function openActivityModal(actId) {
   document.getElementById('actTitle').value = '';
   document.getElementById('actAddr').value = '';
   document.getElementById('actMax').value = 1;
+  document.getElementById('actContact').value = '';
   document.getElementById('actBg').value = '';
   document.getElementById('actEnabled').checked = true;
   hideError('actError');
+  previewActBg();
   if (actId) {
     apiFetch('/api/admin/activities' + (adminStoreCode ? '?store=' + encodeURIComponent(adminStoreCode) : ''))
       .then(r => r.json())
@@ -1147,9 +1161,11 @@ function openActivityModal(actId) {
         document.getElementById('actTitle').value = a.title || '';
         document.getElementById('actAddr').value = a.address || '';
         document.getElementById('actMax').value = a.maxPerSlot || 1;
+        document.getElementById('actContact').value = a.contact || '';
         document.getElementById('actBg').value = a.background || '';
         document.getElementById('actEnabled').checked = a.enabled !== false;
         renderActSlotRows(a.slots || []);
+        previewActBg();
         document.getElementById('activityModal').style.display = '';
       })
       .catch(() => alert('加载活动失败'));
@@ -1157,6 +1173,30 @@ function openActivityModal(actId) {
     renderActSlotRows(DEFAULT_SLOTS);
     document.getElementById('activityModal').style.display = '';
   }
+}
+
+/* ===== 背景上传与预览 ===== */
+async function uploadActBg(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const res = await apiFetch('/api/upload', { method: 'POST', body: formData });
+    const d = await res.json();
+    if (!res.ok) { alert(d.error || '上传失败'); return; }
+    document.getElementById('actBg').value = d.url;
+    previewActBg();
+  } catch (e) { if (e.message !== 'NEED_LOGIN') alert('上传失败'); }
+  finally { input.value = ''; }
+}
+
+function previewActBg() {
+  const box = document.getElementById('actBgPreview');
+  if (!box) return;
+  const v = document.getElementById('actBg').value.trim();
+  if (!v) { box.style.background = ''; return; }
+  box.style.background = /^(https?:\/\/|\/)/.test(v) ? '#eee url(' + v + ') no-repeat center / cover' : v;
 }
 
 const DEFAULT_SLOTS = (() => {
@@ -1210,13 +1250,14 @@ async function saveActivityConfig() {
   const maxPerSlot = parseInt(document.getElementById('actMax').value) || 1;
   const enabled = document.getElementById('actEnabled').checked;
   const background = document.getElementById('actBg').value.trim();
+  const contact = document.getElementById('actContact').value.trim();
   const slots = [...document.querySelectorAll('.act-slot')].map(i => i.value.trim()).filter(Boolean);
   if (!title) return showError('actError', '请填写活动标题');
   if (slots.length === 0) return showError('actError', '请至少添加一个时段');
   for (const s of slots) {
     if (!/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(s)) return showError('actError', `时段格式错误：${s}`);
   }
-  const body = { title, address, slots, maxPerSlot, enabled, background };
+  const body = { title, address, slots, maxPerSlot, enabled, background, contact };
   try {
     const url = '/api/admin/activities' + (adminStoreCode ? '?store=' + encodeURIComponent(adminStoreCode) : '');
     const res = editingActivityId

@@ -8,6 +8,7 @@ const express = require('express');
 const QRCode = require('qrcode');
 const crypto = require('crypto');
 const path = require('path');
+const multer = require('multer');
 const db = require('./feishu-base');
 const staff = require('./staff');
 
@@ -249,12 +250,14 @@ app.get('/api/settings', (req, res) => {
     storeName: store.name,
     storeAddress: act ? act.address : '', // 兼容字段
     storePhone: store.phone || '',
+    contact: (act && (act.contact || store.phone)) || '', // 活动联系方式（默认门店电话）
     activity: act ? {
       id: act.id,
       title: act.title,
       address: act.address,
       slots: act.slots,
-      background: act.background || ''
+      background: act.background || '',
+      contact: act.contact || ''
     } : null,
     activities: acts
   });
@@ -639,6 +642,34 @@ app.post('/api/admin/staff/:id/reset-password', requireAdmin, (req, res) => {
   }
 });
 
+// ============ 图片上传（活动背景等，仅登录后） ============
+const UPLOAD_DIR = path.join(__dirname, 'public', 'uploads');
+try { require('fs').mkdirSync(UPLOAD_DIR, { recursive: true }); } catch (e) {}
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+    filename: (req, file, cb) => {
+      const ext = (file.originalname.match(/\.(jpg|jpeg|png|webp|gif)$/i) || [])[1] || 'png';
+      cb(null, Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext);
+    }
+  }),
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+  fileFilter: (req, file, cb) => {
+    if (/^\.(jpg|jpeg|png|webp|gif)$/i.test(path.extname(file.originalname))) cb(null, true);
+    else cb(new Error('仅支持 jpg/png/webp/gif 图片'));
+  }
+});
+app.post('/api/upload', requireAdmin, upload.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: '未收到文件' });
+  res.json({ success: true, url: '/uploads/' + req.file.filename });
+});
+// 上传错误处理
+app.use((err, req, res, next) => {
+  if (err && (err.code === 'LIMIT_FILE_SIZE')) return res.status(400).json({ error: '图片不能超过 2MB' });
+  if (err && err.message === '仅支持 jpg/png/webp/gif 图片') return res.status(400).json({ error: err.message });
+  next(err);
+});
+
 // ============ 管理端账号密码登录 ============
 app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body || {};
@@ -790,7 +821,7 @@ app.get('/api/admin/activities', requireAdmin, (req, res) => {
   const { store } = resolveTargetStore(req);
   res.json({
     storeCode: store.code,
-    activities: (store.activities || []).map(a => ({ id: a.id, title: a.title, address: a.address, slots: a.slots, maxPerSlot: a.maxPerSlot, enabled: a.enabled !== false, background: a.background || '', createdAt: a.createdAt }))
+    activities: (store.activities || []).map(a => ({ id: a.id, title: a.title, address: a.address, slots: a.slots, maxPerSlot: a.maxPerSlot, enabled: a.enabled !== false, background: a.background || '', contact: a.contact || '', createdAt: a.createdAt }))
   });
 });
 
@@ -802,7 +833,8 @@ app.post('/api/admin/activities', requireAdmin, (req, res) => {
       address: req.body.address,
       slots: req.body.slots,
       maxPerSlot: req.body.maxPerSlot,
-      background: req.body.background
+      background: req.body.background,
+      contact: req.body.contact
     });
     res.json({ success: true, activity: act });
   } catch (e) {
@@ -819,7 +851,8 @@ app.put('/api/admin/activities/:actId', requireAdmin, (req, res) => {
       slots: req.body.slots,
       maxPerSlot: req.body.maxPerSlot,
       enabled: req.body.enabled,
-      background: req.body.background
+      background: req.body.background,
+      contact: req.body.contact
     });
     res.json({ success: true, activity: act });
   } catch (e) {

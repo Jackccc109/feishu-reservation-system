@@ -74,6 +74,7 @@ function normalizeStore(s) {
       maxPerSlot: s.store.maxPerSlot,
       enabled: true,
       background: '', // 顾客页背景（图片URL或颜色，空=默认）
+      contact: '',   // 活动联系方式（顾客端展示，空=用门店电话）
       createdAt: new Date().toISOString()
     }];
   }
@@ -101,6 +102,7 @@ function addActivity(staffEntry, act) {
     maxPerSlot: parseInt(act.maxPerSlot) || 1,
     enabled: act.enabled !== false,
     background: (act.background || '').trim(),
+    contact: (act.contact || '').trim(),
     createdAt: new Date().toISOString()
   };
   s.store.activities.push(item);
@@ -120,6 +122,7 @@ function updateActivity(staffEntry, actId, patch) {
   if (patch.maxPerSlot !== undefined) act.maxPerSlot = parseInt(patch.maxPerSlot) || 1;
   if (patch.enabled !== undefined) act.enabled = !!patch.enabled;
   if (patch.background !== undefined) act.background = (patch.background || '').trim();
+  if (patch.contact !== undefined) act.contact = (patch.contact || '').trim();
   saveStaff(list);
   return act;
 }
