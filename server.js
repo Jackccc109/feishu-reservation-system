@@ -248,11 +248,13 @@ app.get('/api/settings', (req, res) => {
     storeCode: store.code,
     storeName: store.name,
     storeAddress: act ? act.address : '', // 兼容字段
+    storePhone: store.phone || '',
     activity: act ? {
       id: act.id,
       title: act.title,
       address: act.address,
-      slots: act.slots
+      slots: act.slots,
+      background: act.background || ''
     } : null,
     activities: acts
   });
@@ -420,6 +422,7 @@ app.get('/api/customer/reservations', asyncHandler(async (req, res) => {
       signinCode: r.signinCode,
       createdAt: r.created_at,
       storeName: store.name,
+      storePhone: store.phone || '',
       activityId: r.activity || '',
       activityTitle: activityTitleOf(store, r.activity)
     }))
@@ -503,6 +506,7 @@ app.get('/api/reservation/:code', asyncHandler(async (req, res) => {
     checkedInAt: r.checked_in_at,
     store: r.store,
     storeName,
+    storePhone: st ? (st.store.phone || '') : '',
     activityId: r.activity || '',
     activityTitle: st ? activityTitleOf(st.store, r.activity) : ''
   });
@@ -581,6 +585,59 @@ function finishCheckin(res, r, method) {
     }
   });
 }
+
+// ============ 忘记密码：短信验证码自助重置（公开接口，加限流防滥用） ============
+// 第一步：输入账号 → 发验证码到该账号绑定的手机号
+app.post('/api/admin/forgot/send', rateLimit(5, 60000), asyncHandler(async (req, res) => {
+  const username = ((req.body || {}).username || '').trim();
+  if (!username) return res.status(400).json({ error: '请输入账号' });
+  const s = staff.findByUsername(username);
+  if (!s) return res.status(400).json({ error: '账号不存在' });
+  if (!s.phone || !/^1[3-9]\d{9}$/.test(s.phone)) {
+    return res.status(400).json({ error: '该账号未绑定手机号，请联系总管理员重置' });
+  }
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  smsCodes.set(s.id, { code, phone: s.phone, expiresAt: Date.now() + SMS_TTL, attempts: 0, purpose: 'reset' });
+  try {
+    await sendSms(s.phone, code);
+    res.json({ success: true, phoneMasked: maskPhone(s.phone), expiresIn: SMS_TTL });
+  } catch (e) {
+    smsCodes.delete(s.id);
+    res.status(500).json({ error: e.message });
+  }
+}));
+
+// 第二步：验证码 + 新密码 → 重置
+app.post('/api/admin/forgot/reset', rateLimit(10, 60000), (req, res) => {
+  const { username, code, password } = req.body || {};
+  const u = ((username || '').trim());
+  const s = staff.findByUsername(u);
+  if (!s) return res.status(400).json({ error: '账号不存在' });
+  const rec = smsCodes.get(s.id);
+  if (!rec || rec.purpose !== 'reset') return res.status(400).json({ error: '请先获取验证码' });
+  if (rec.phone !== s.phone) { smsCodes.delete(s.id); return res.status(400).json({ error: '手机号已变更，请重新获取验证码' }); }
+  if (Date.now() > rec.expiresAt) { smsCodes.delete(s.id); return res.status(400).json({ error: '验证码已过期，请重新获取' }); }
+  rec.attempts++;
+  if (rec.attempts > 5) { smsCodes.delete(s.id); return res.status(400).json({ error: '尝试次数过多，请重新获取验证码' }); }
+  if (String(code).trim() !== rec.code) return res.status(400).json({ error: '验证码错误' });
+  if (!password || String(password).length < 6) return res.status(400).json({ error: '新密码至少 6 位' });
+  smsCodes.delete(s.id);
+  staff.updateStaff(s.id, { password: String(password) });
+  res.json({ success: true, message: '密码已重置，请用新密码登录' });
+});
+
+// 总管理员免旧密码重置任意账号（门店管理 → 重置密码）
+app.post('/api/admin/staff/:id/reset-password', requireAdmin, (req, res) => {
+  if (req.staff.role !== 'super') return res.status(403).json({ error: '仅总管理员可重置密码' });
+  const { password } = req.body || {};
+  if (!password || String(password).length < 6) return res.status(400).json({ error: '新密码至少 6 位' });
+  try {
+    staff.updateStaff(req.params.id, { password: String(password) });
+    res.json({ success: true, message: '密码已重置' });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
 
 // ============ 管理端账号密码登录 ============
 app.post('/api/admin/login', (req, res) => {
@@ -733,7 +790,7 @@ app.get('/api/admin/activities', requireAdmin, (req, res) => {
   const { store } = resolveTargetStore(req);
   res.json({
     storeCode: store.code,
-    activities: (store.activities || []).map(a => ({ id: a.id, title: a.title, address: a.address, slots: a.slots, maxPerSlot: a.maxPerSlot, enabled: a.enabled !== false, createdAt: a.createdAt }))
+    activities: (store.activities || []).map(a => ({ id: a.id, title: a.title, address: a.address, slots: a.slots, maxPerSlot: a.maxPerSlot, enabled: a.enabled !== false, background: a.background || '', createdAt: a.createdAt }))
   });
 });
 
@@ -744,7 +801,8 @@ app.post('/api/admin/activities', requireAdmin, (req, res) => {
       title: req.body.title,
       address: req.body.address,
       slots: req.body.slots,
-      maxPerSlot: req.body.maxPerSlot
+      maxPerSlot: req.body.maxPerSlot,
+      background: req.body.background
     });
     res.json({ success: true, activity: act });
   } catch (e) {
@@ -760,7 +818,8 @@ app.put('/api/admin/activities/:actId', requireAdmin, (req, res) => {
       address: req.body.address,
       slots: req.body.slots,
       maxPerSlot: req.body.maxPerSlot,
-      enabled: req.body.enabled
+      enabled: req.body.enabled,
+      background: req.body.background
     });
     res.json({ success: true, activity: act });
   } catch (e) {
@@ -878,7 +937,27 @@ app.get('/api/admin/stats', requireAdmin, asyncHandler(async (req, res) => {
   const { date } = req.query;
   const filterDate = date || getLocalToday();
   const { store } = resolveTargetStore(req);
-  const stats = await db.getStats(filterDate, store.code);
+  // 按活动拆分统计：一次拉当日该门店记录，本地分组
+  const dayRecords = await db.getReservationsByDate(filterDate, null, store.code);
+  const stats = { total: dayRecords.length, pending: 0, checkedIn: 0, cancelled: 0, byActivity: [] };
+  const actMap = {};
+  for (const a of (store.activities || [])) actMap[a.id] = a.title;
+  const actAgg = {};
+  for (const r of dayRecords) {
+    if (r.status === 'pending') stats.pending++;
+    else if (r.status === 'checked_in') stats.checkedIn++;
+    else if (r.status === 'cancelled') stats.cancelled++;
+    const key = r.activity || '';
+    if (!actAgg[key]) actAgg[key] = { total: 0, pending: 0, checkedIn: 0, cancelled: 0 };
+    const g = actAgg[key];
+    g.total++;
+    if (r.status === 'pending') g.pending++;
+    else if (r.status === 'checked_in') g.checkedIn++;
+    else if (r.status === 'cancelled') g.cancelled++;
+  }
+  stats.byActivity = (store.activities || [])
+    .map(a => ({ activityId: a.id, activityTitle: a.title, ...(actAgg[a.id] || { total: 0, pending: 0, checkedIn: 0, cancelled: 0 }) }))
+    .filter(a => a.total > 0);
   res.json({ date: filterDate, storeCode: store.code, ...stats });
 }));
 

@@ -116,6 +116,9 @@
           <div class="stat-card cancel"><div class="stat-num">-</div><div class="stat-label">已取消</div></div>
         </div>
 
+        <!-- 按活动统计 -->
+        <div id="statsByActivity" style="margin-top:12px;"></div>
+
         <!-- 排队看板 -->
         <div class="queue-board" id="queueBoard" style="margin-top:16px;">
           <div class="queue-col">
@@ -216,9 +219,49 @@
         <input type="password" id="loginPassword" class="form-input" placeholder="密码" autocomplete="current-password">
       </div>
       <div class="form-error" id="loginError"></div>
+      <div style="text-align:right;margin-top:8px;">
+        <a href="javascript:void(0)" onclick="showForgot()" style="font-size:12px;color:#999;">忘记密码？</a>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-primary" id="btnLogin" onclick="doLogin()">登录</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 忘记密码（短信验证码重置） ===== -->
+<div class="modal-overlay" id="forgotModal" style="display:none;">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <h3>🔑 忘记密码</h3>
+      <button class="modal-close" onclick="closeForgot()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-info">验证码将发送到该账号绑定的手机号</p>
+      <div class="form-group">
+        <label class="form-label">账号</label>
+        <input type="text" id="fgtUsername" class="form-input" placeholder="请输入账号">
+      </div>
+      <div class="form-group">
+        <button class="btn btn-outline btn-block" id="btnFgtSend" onclick="sendForgotCode()">获取验证码</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">验证码</label>
+        <input type="text" id="fgtCode" class="form-input" placeholder="6位验证码" maxlength="6">
+      </div>
+      <div class="form-group">
+        <label class="form-label">新密码</label>
+        <input type="password" id="fgtPwd" class="form-input" placeholder="至少 6 位">
+      </div>
+      <div class="form-group">
+        <label class="form-label">确认新密码</label>
+        <input type="password" id="fgtPwd2" class="form-input" placeholder="再次输入新密码">
+      </div>
+      <div class="form-error" id="fgtError"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeForgot()">取消</button>
+      <button class="btn btn-primary" onclick="doForgotReset()">重置密码</button>
     </div>
   </div>
 </div>
@@ -330,6 +373,10 @@
         <label class="form-label">门店标题</label>
         <input type="text" id="siName" class="form-input" placeholder="门店标题">
       </div>
+      <div class="form-group">
+        <label class="form-label">门店电话（顾客端展示，可点击拨打）</label>
+        <input type="tel" id="siPhone" class="form-input" placeholder="如 027-88888888">
+      </div>
       <div class="form-error" id="siError"></div>
     </div>
     <div class="modal-footer">
@@ -367,6 +414,11 @@
           <input type="text" id="actSlotNew" class="form-input" placeholder="如 10:00-10:20" style="flex:1;">
           <button class="btn btn-outline" onclick="addActSlotRow()">+ 添加</button>
         </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">顾客页背景（图片URL 或颜色值）</label>
+        <input type="text" id="actBg" class="form-input" placeholder="如 https://xxx.com/bg.jpg 或 #f0f7ff（留空=默认）">
+        <div style="font-size:12px;color:#999;margin-top:6px;">图片建议竖屏 750x1334 以上；可配渐变背景如 linear-gradient(135deg,#e8f4fd,#f9e7e0)</div>
       </div>
       <label style="display:flex;align-items:center;gap:8px;margin-top:12px;">
         <input type="checkbox" id="actEnabled" checked> 启用该活动（顾客端可见）
@@ -603,6 +655,7 @@ async function loadStaff() {
           <td style="font-size:12px;">${escapeHtml(s.store ? s.store.name : '')}<br><code style="color:var(--primary);">${escapeHtml(s.store ? s.store.code : '')}</code></td>
           <td>
             ${adminRole === 'super' ? `<button class="btn btn-sm btn-outline" onclick="viewStaffPassword('${s.id}','${escapeHtml(s.username)}')">查看密码</button>` : ''}
+            ${adminRole === 'super' ? `<button class="btn btn-sm btn-outline" onclick="resetStaffPassword('${s.id}','${escapeHtml(s.username)}')">重置密码</button>` : ''}
             <button class="btn btn-sm btn-outline" onclick="openPwdModal('${s.id}','${escapeHtml(s.username)}')">改密码</button>
             <button class="btn btn-sm btn-outline" onclick="saveStaffPhone('${s.id}')">存手机号</button>
             ${adminRole === 'super' ? `<button class="btn btn-sm btn-outline" onclick="openStoreInfoModal('${s.id}')">编辑</button>
@@ -628,6 +681,7 @@ async function openStoreInfoModal(staffId) {
     document.getElementById('siName').value = s.store.name || '';
     document.getElementById('siAddr').value = s.store.address || '';
     document.getElementById('siMax').value = s.store.maxPerSlot || 1;
+    document.getElementById('siPhone').value = s.store.phone || '';
     hideError('siError');
     document.getElementById('storeInfoModal').style.display = '';
   } catch (e) { if (e.message !== 'NEED_LOGIN') alert('加载失败'); }
@@ -649,7 +703,7 @@ async function saveStoreInfo() {
     const res = await apiFetch('/api/admin/staff/' + storeInfoTargetId, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ store: { code, name } })
+      body: JSON.stringify({ store: { code, name, phone: document.getElementById('siPhone').value.trim() } })
     });
     const d = await res.json();
     if (!res.ok) { showError('siError', d.error || '保存失败'); return; }
@@ -666,6 +720,89 @@ async function saveStoreInfo() {
       sel.value = adminStoreCode;
     }
   } catch (e) { if (e.message !== 'NEED_LOGIN') showError('siError', '保存失败'); }
+}
+
+/* ===== 忘记密码：短信验证码自助重置 ===== */
+function showForgot() {
+  document.getElementById("loginModal").style.display = "none";
+  document.getElementById("forgotModal").style.display = "";
+  document.getElementById("fgtUsername").value = document.getElementById("loginUsername").value || "";
+  document.getElementById("fgtCode").value = "";
+  document.getElementById("fgtPwd").value = "";
+  document.getElementById("fgtPwd2").value = "";
+  hideError("fgtError");
+}
+
+function closeForgot() {
+  document.getElementById("forgotModal").style.display = "none";
+  document.getElementById("loginModal").style.display = "";
+}
+
+async function sendForgotCode() {
+  const username = document.getElementById("fgtUsername").value.trim();
+  if (!username) return showError("fgtError", "请输入账号");
+  hideError("fgtError");
+  const btn = document.getElementById("btnFgtSend");
+  btn.disabled = true; btn.textContent = "发送中…";
+  try {
+    const res = await fetch("/api/admin/forgot/send", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username })
+    });
+    const d = await res.json();
+    if (!res.ok) { showError("fgtError", d.error || "发送失败"); return; }
+    btn.textContent = "已发送到 " + (d.phoneMasked || "") + "（5分钟内有效）";
+    setTimeout(() => { btn.disabled = false; btn.textContent = "重新获取"; }, 30000);
+  } catch (e) {
+    showError("fgtError", "网络异常，请重试");
+  } finally {
+    if (!btn.disabled) btn.textContent = "获取验证码";
+  }
+}
+
+async function doForgotReset() {
+  const username = document.getElementById("fgtUsername").value.trim();
+  const code = document.getElementById("fgtCode").value.trim();
+  const pwd = document.getElementById("fgtPwd").value;
+  const pwd2 = document.getElementById("fgtPwd2").value;
+  if (!username) return showError("fgtError", "请输入账号");
+  if (!/^\d{6}$/.test(code)) return showError("fgtError", "请输入6位验证码");
+  if (!pwd || pwd.length < 6) return showError("fgtError", "新密码至少 6 位");
+  if (pwd !== pwd2) return showError("fgtError", "两次输入的新密码不一致");
+  hideError("fgtError");
+  try {
+    const res = await fetch("/api/admin/forgot/reset", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, code, password: pwd })
+    });
+    const d = await res.json();
+    if (!res.ok) { showError("fgtError", d.error || "重置失败"); return; }
+    alert("密码已重置，请用新密码登录");
+    closeForgot();
+    document.getElementById("loginUsername").value = username;
+    document.getElementById("loginPassword").value = "";
+    document.getElementById("loginPassword").focus();
+  } catch (e) {
+    showError("fgtError", "网络异常，请重试");
+  }
+}
+
+/* ===== 总管理员免旧密码重置 ===== */
+async function resetStaffPassword(id, username) {
+  const pwd = prompt(`重置账号「${username}」的密码（免旧密码）：
+请输入新密码（至少6位）：`);
+  if (pwd === null) return;
+  if (!pwd || pwd.length < 6) return alert("密码至少 6 位");
+  if (!confirm("确认将该账号密码重置为新密码？")) return;
+  try {
+    const res = await apiFetch("/api/admin/staff/" + id + "/reset-password", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: pwd })
+    });
+    const d = await res.json();
+    if (!res.ok) { alert(d.error || "重置失败"); return; }
+    alert("密码已重置");
+  } catch (e) { if (e.message !== "NEED_LOGIN") alert("重置失败"); }
 }
 
 /* ===== 查看密码 / 修改密码（弹窗验证旧密码） ===== */
@@ -998,6 +1135,7 @@ function openActivityModal(actId) {
   document.getElementById('actTitle').value = '';
   document.getElementById('actAddr').value = '';
   document.getElementById('actMax').value = 1;
+  document.getElementById('actBg').value = '';
   document.getElementById('actEnabled').checked = true;
   hideError('actError');
   if (actId) {
@@ -1009,6 +1147,7 @@ function openActivityModal(actId) {
         document.getElementById('actTitle').value = a.title || '';
         document.getElementById('actAddr').value = a.address || '';
         document.getElementById('actMax').value = a.maxPerSlot || 1;
+        document.getElementById('actBg').value = a.background || '';
         document.getElementById('actEnabled').checked = a.enabled !== false;
         renderActSlotRows(a.slots || []);
         document.getElementById('activityModal').style.display = '';
@@ -1070,13 +1209,14 @@ async function saveActivityConfig() {
   const address = document.getElementById('actAddr').value.trim();
   const maxPerSlot = parseInt(document.getElementById('actMax').value) || 1;
   const enabled = document.getElementById('actEnabled').checked;
+  const background = document.getElementById('actBg').value.trim();
   const slots = [...document.querySelectorAll('.act-slot')].map(i => i.value.trim()).filter(Boolean);
   if (!title) return showError('actError', '请填写活动标题');
   if (slots.length === 0) return showError('actError', '请至少添加一个时段');
   for (const s of slots) {
     if (!/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(s)) return showError('actError', `时段格式错误：${s}`);
   }
-  const body = { title, address, slots, maxPerSlot, enabled };
+  const body = { title, address, slots, maxPerSlot, enabled, background };
   try {
     const url = '/api/admin/activities' + (adminStoreCode ? '?store=' + encodeURIComponent(adminStoreCode) : '');
     const res = editingActivityId
@@ -1193,6 +1333,8 @@ document.getElementById('loginUsername').addEventListener('keydown', e => {
 /* ============ 全局状态 ============ */
 let currentCheckinTab = 'phone';
 let listFilter = '';
+// 注意：必须有 let 声明！否则会落到浏览器自动生成的 <input id="filterDate"> 元素全局变量上，日期参数变成 [object HTMLInputElement]
+let filterDate = getLocalToday();
 let rescheduleCode = null;
 const today = getLocalToday();
 
@@ -1413,6 +1555,23 @@ async function loadStats() {
       <div class="stat-card checked"><div class="stat-num">${d.checkedIn}</div><div class="stat-label">已签到</div></div>
       <div class="stat-card cancel"><div class="stat-num">${d.cancelled}</div><div class="stat-label">已取消</div></div>
     `;
+    // 按活动拆分统计
+    const actBox = document.getElementById('statsByActivity');
+    if (actBox) {
+      const acts = d.byActivity || [];
+      actBox.innerHTML = acts.length
+        ? '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">' +
+          acts.map(a => `<div style="flex:1;min-width:200px;border:1px solid #eee;border-radius:10px;padding:10px 14px;">
+            <div style="font-weight:600;font-size:14px;">${escapeHtml(a.activityTitle)}</div>
+            <div style="font-size:12px;color:#666;margin-top:6px;display:flex;gap:12px;flex-wrap:wrap;">
+              <span>共 ${a.total}</span><span style="color:#ff9500;">待签 ${a.pending}</span><span style="color:#389e0d;">已签 ${a.checkedIn}</span><span style="color:#999;">取消 ${a.cancelled}</span>
+            </div>
+            <div style="height:6px;background:#f0f0f0;border-radius:3px;margin-top:8px;overflow:hidden;">
+              <div style="height:100%;width:${a.total ? Math.round(a.checkedIn / a.total * 100) : 0}%;background:#07c160;"></div>
+            </div>
+          </div>`).join('') + '</div>'
+        : '<div class="queue-empty">今日暂无预约</div>';
+    }
   } catch (e) { console.error(e); }
 }
 

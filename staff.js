@@ -60,6 +60,7 @@ function normalizeStore(s) {
   s.store.code = s.store.code || 'default';
   s.store.name = s.store.name || '优品生活馆';
   s.store.address = s.store.address || '';
+  s.store.phone = s.store.phone || ''; // 门店联系电话（顾客端展示）
   if (!Array.isArray(s.store.slots) || s.store.slots.length === 0) s.store.slots = DEFAULT_SLOTS;
   s.store.maxPerSlot = parseInt(s.store.maxPerSlot) || 1;
   // 一店多活动：仅当 activities 字段缺失（老数据/新建）时用原标题/地址/时段/上限封装为默认活动；
@@ -72,6 +73,7 @@ function normalizeStore(s) {
       slots: s.store.slots,
       maxPerSlot: s.store.maxPerSlot,
       enabled: true,
+      background: '', // 顾客页背景（图片URL或颜色，空=默认）
       createdAt: new Date().toISOString()
     }];
   }
@@ -98,6 +100,7 @@ function addActivity(staffEntry, act) {
     slots: Array.isArray(act.slots) && act.slots.length ? act.slots : DEFAULT_SLOTS,
     maxPerSlot: parseInt(act.maxPerSlot) || 1,
     enabled: act.enabled !== false,
+    background: (act.background || '').trim(),
     createdAt: new Date().toISOString()
   };
   s.store.activities.push(item);
@@ -116,6 +119,7 @@ function updateActivity(staffEntry, actId, patch) {
   if (Array.isArray(patch.slots) && patch.slots.length) act.slots = patch.slots;
   if (patch.maxPerSlot !== undefined) act.maxPerSlot = parseInt(patch.maxPerSlot) || 1;
   if (patch.enabled !== undefined) act.enabled = !!patch.enabled;
+  if (patch.background !== undefined) act.background = (patch.background || '').trim();
   saveStaff(list);
   return act;
 }
@@ -149,6 +153,7 @@ function ensureSeed() {
         code: process.env.STORE_CODE || 'default',
         name: process.env.STORE_NAME || '优品生活馆',
         address: process.env.STORE_ADDRESS || '',
+        phone: process.env.STORE_PHONE || '',
         slots: DEFAULT_SLOTS,
         maxPerSlot: parseInt(process.env.MAX_PER_SLOT) || 1,
         activities: [{
@@ -158,6 +163,7 @@ function ensureSeed() {
           slots: DEFAULT_SLOTS,
           maxPerSlot: parseInt(process.env.MAX_PER_SLOT) || 1,
           enabled: true,
+          background: '',
           createdAt: new Date().toISOString()
         }]
       }
@@ -215,6 +221,7 @@ function addStaff({ username, password, phone, store, role }) {
       code: store.code || 'default',
       name: store.name || '优品生活馆',
       address: store.address || '',
+      phone: (store.phone || '').trim(),
       slots: store.slots || DEFAULT_SLOTS,
       maxPerSlot: parseInt(store.maxPerSlot) || 1
     } : undefined
@@ -267,7 +274,8 @@ function updateStaff(id, patch) {
     if (patch.store.address !== undefined) item.store.address = patch.store.address;
     if (Array.isArray(patch.store.slots) && patch.store.slots.length > 0) item.store.slots = patch.store.slots;
     if (patch.store.maxPerSlot !== undefined) item.store.maxPerSlot = parseInt(patch.store.maxPerSlot) || 1;
-    // 门店信息仅作用于门店层（标题/编码），不影响活动
+    if (patch.store.phone !== undefined) item.store.phone = (patch.store.phone || '').trim();
+    // 门店信息仅作用于门店层（标题/编码/电话），不影响活动
   }
   saveStaff(list);
   return item;

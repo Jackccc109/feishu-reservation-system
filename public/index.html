@@ -35,7 +35,8 @@
         </div>
         <div class="form-error" id="lookupError"></div>
         <div id="lookupResult"></div>
-        <div style="text-align:center;margin-top:16px;">
+        <div id="contactPhoneArea2" style="text-align:center;margin-top:20px;"></div>
+        <div style="text-align:center;margin-top:8px;">
           <button class="btn btn-outline" onclick="backToReserve()">返回预约</button>
         </div>
       </div>
@@ -109,6 +110,7 @@
 
             <div class="success-tip" id="successTip"></div>
             <div id="otherActivities" style="margin-top:16px;"></div>
+            <div id="contactPhoneArea"></div>
             <div style="text-align:center;margin-top:12px;">
               <button class="btn btn-outline btn-sm" onclick="viewMyReservation()">查看我的预约详情</button>
             </div>
@@ -140,7 +142,8 @@
           <img id="detailQr" src="" alt="签到二维码" class="qr-code" style="width:180px;height:180px;">
         </div>
         <div class="success-tip" id="detailStatus"></div>
-        <div style="text-align:center;margin-top:20px;">
+        <div id="contactPhoneArea3" style="text-align:center;margin-top:20px;"></div>
+        <div style="text-align:center;margin-top:8px;">
           <button class="btn btn-outline" onclick="goReservePage()">去预约</button>
         </div>
       </div>
@@ -157,6 +160,35 @@ let successCode = null; // 当前预约码（成功页跳详情用）
 let storeCode = new URLSearchParams(location.search).get('store') || ''; // 门店编码（扫码/链接路由）
 let activityCode = new URLSearchParams(location.search).get('act') || ''; // 活动ID
 let activities = []; // 门店活动列表
+let storePhone = ''; // 门店联系电话
+
+// 应用顾客页背景（活动级：图片URL / 颜色 / 渐变）
+function applyBackground(bg) {
+  const b = document.body;
+  if (!bg) {
+    b.style.background = '';
+    return;
+  }
+  const t = String(bg).trim();
+  if (/^(https?:\/\/|\/)/.test(t)) {
+    b.style.background = '#f5f5f5 url(' + t + ') no-repeat center top / cover fixed';
+  } else {
+    b.style.background = t;
+  }
+}
+
+// 联系门店电话区（底部展示，可点击拨打）
+function renderContactPhone() {
+  const html = storePhone
+    ? `<div style="text-align:center;margin:20px auto 8px;color:#888;font-size:13px;">
+        需要帮助？联系门店：<a href="tel:${escapeHtml(storePhone)}" style="color:var(--primary);font-weight:600;text-decoration:none;">${escapeHtml(storePhone)}</a>
+      </div>`
+    : '';
+  for (const id of ['contactPhoneArea', 'contactPhoneArea2', 'contactPhoneArea3']) {
+    const box = document.getElementById(id);
+    if (box) box.innerHTML = html;
+  }
+}
 
 // 拼接门店+活动参数
 function withStore(url) {
@@ -309,6 +341,9 @@ async function loadSettings() {
     const addr = (d.activity && d.activity.address) || d.storeAddress || '';
     document.getElementById('storeAddr').textContent = d.storeName + (addr ? ' · ' + addr : '');
     activities = d.activities || [];
+    storePhone = d.storePhone || '';
+    renderContactPhone();
+    applyBackground(d.activity && d.activity.background);
     // 活动选择器（多活动时显示）
     renderActivityPicker();
     if (activityCode) {
@@ -338,6 +373,7 @@ async function switchActivity(id) {
   document.getElementById('storeName').textContent = (d.activity && d.activity.title) || d.storeName;
   const addr = (d.activity && d.activity.address) || d.storeAddress || '';
   document.getElementById('storeAddr').textContent = d.storeName + (addr ? ' · ' + addr : '');
+  applyBackground(d.activity && d.activity.background);
   await loadSlots();
 }
 
@@ -597,4 +633,5 @@ document.addEventListener('DOMContentLoaded', init);
 .activity-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
 .activity-tab { padding:8px 16px; border:1px solid #ddd; border-radius:8px; background:#fff; font-size:14px; cursor:pointer; }
 .activity-tab.active { border-color:var(--primary); color:var(--primary); background:#e6f4ff; }
+body { background: linear-gradient(160deg, #eef6ff 0%, #f7f9fc 40%, #fdf6ef 100%); background-attachment: fixed; }
 </style>
