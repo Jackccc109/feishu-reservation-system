@@ -120,7 +120,10 @@
         <h2>今日概览</h2>
         <span class="panel-sub" id="statsDate">--</span>
       </div>
-      <div class="act-filter-bar" id="actFilterBar" style="display:none;"></div>
+      <div class="act-filter-bar" id="actFilterBar" style="display:none;">
+        <label for="actFilterSelect" style="font-size:13px;color:#64748B;line-height:36px;">活动筛选：</label>
+        <select id="actFilterSelect" class="form-input" onchange="switchActFilter(this.value)" style="width:auto;min-width:180px;max-width:280px;"></select>
+      </div>
       <div class="panel-body">
         <div class="stats-grid" id="statsGrid">
           <div class="stat-card total"><div class="stat-num">-</div><div class="stat-label">今日预约</div></div>
@@ -1125,11 +1128,14 @@ function openActivities() {
 function renderActFilter(activities) {
   const bar = document.getElementById('actFilterBar');
   if (!bar) return;
-  const acts = activities.filter(a => a.enabled !== false);
+  const acts = (activities || []).filter(a => a.enabled !== false);
   if (acts.length <= 1) { bar.style.display = 'none'; currentAct = ''; return; }
   bar.style.display = '';
-  bar.innerHTML = '<button class="act-filter-tag ' + (currentAct === '' ? 'active' : '') + '" data-act="" onclick="switchActFilter(\'\')">全部</button>' +
-    acts.map(a => '<button class="act-filter-tag ' + (currentAct === a.id ? 'active' : '') + '" data-act="' + a.id + '" onclick="switchActFilter(\'' + a.id + '\')">' + escapeHtml(a.title) + '</button>').join('');
+  const sel = document.getElementById('actFilterSelect');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">全部活动</option>' +
+    acts.map(a => '<option value="' + a.id + '"' + (currentAct === a.id ? ' selected' : '') + '>' + escapeHtml(a.title) + '</option>').join('');
+  sel.value = currentAct || '';
 }
 
 function switchActFilter(actId) {
