@@ -290,6 +290,7 @@ function checkPassword(staff, password) {
 
 module.exports = {
   DEFAULT_SLOTS,
+  ensureSeed,
   listStaff, findByUsername, findById, findByStoreCode,
   addStaff, removeStaff, updateStaff, checkPassword,
   addActivity, updateActivity, removeActivity

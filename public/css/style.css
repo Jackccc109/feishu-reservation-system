@@ -658,3 +658,16 @@ body.customer #contactPhoneArea3 a {
   body.customer .panel-body { padding: 18px 18px 24px; }
   body.customer .activity-tab { padding: 8px 16px; font-size: 13px; }
 }
+
+/* 今日概览活动筛选 */
+.act-filter-bar {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  padding: 12px 20px 0;
+}
+.act-filter-tag {
+  padding: 7px 16px; border: 1px solid #e2e8f0; border-radius: 999px;
+  background: #fff; font-size: 13px; font-weight: 500; color: #64748B;
+  cursor: pointer; transition: all 0.15s; font-family: inherit;
+}
+.act-filter-tag:hover { border-color: #4A6CF7; color: #4A6CF7; }
+.act-filter-tag.active { background: #4A6CF7; border-color: #4A6CF7; color: #fff; }

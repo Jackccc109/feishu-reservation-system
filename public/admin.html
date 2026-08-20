@@ -108,6 +108,7 @@
         <h2>今日概览</h2>
         <span class="panel-sub" id="statsDate">--</span>
       </div>
+      <div class="act-filter-bar" id="actFilterBar" style="display:none;"></div>
       <div class="panel-body">
         <div class="stats-grid" id="statsGrid">
           <div class="stat-card total"><div class="stat-num">-</div><div class="stat-label">今日预约</div></div>
@@ -1106,14 +1107,36 @@ function openActivities() {
 }
 
 /* ============ 活动管理 ============ */
+/* ===== 今日概览：活动筛选 ===== */
+function renderActFilter(activities) {
+  const bar = document.getElementById('actFilterBar');
+  if (!bar) return;
+  const acts = activities.filter(a => a.enabled !== false);
+  if (acts.length <= 1) { bar.style.display = 'none'; currentAct = ''; return; }
+  bar.style.display = '';
+  bar.innerHTML = '<button class="act-filter-tag ' + (currentAct === '' ? 'active' : '') + '" data-act="" onclick="switchActFilter(\'\')">全部</button>' +
+    acts.map(a => '<button class="act-filter-tag ' + (currentAct === a.id ? 'active' : '') + '" data-act="' + a.id + '" onclick="switchActFilter(\'' + a.id + '\')">' + escapeHtml(a.title) + '</button>').join('');
+}
+
+function switchActFilter(actId) {
+  currentAct = actId;
+  renderActFilter((typeof activitiesCache !== 'undefined' && activitiesCache) || []);
+  refreshAll();
+}
+
+let activitiesCache = [];
+
 async function loadActivities() {
   try {
     const url = '/api/admin/activities' + (adminStoreCode ? '?store=' + encodeURIComponent(adminStoreCode) : '');
     const res = await apiFetch(url);
     const d = await res.json();
     const acts = d.activities || [];
+    activitiesCache = acts;
     const lbl = document.getElementById('actStoreLabel');
     if (lbl) lbl.textContent = '当前门店：' + d.storeCode + '（' + acts.length + ' 个活动）';
+    // 概览活动筛选器：全部 + 各活动
+    renderActFilter(d.activities || []);
     // 一键同步按钮跟随活动出现（仅总管理员，且至少有 1 个活动可同步）
     const btnSync = document.getElementById('btnSyncActivities');
     if (btnSync) btnSync.style.display = (adminRole === 'super' && acts.length > 0) ? '' : 'none';
@@ -1371,6 +1394,7 @@ document.getElementById('loginUsername').addEventListener('keydown', e => {
 
 /* ============ 全局状态 ============ */
 let currentCheckinTab = 'phone';
+let currentAct = ''; // 今日概览活动筛选（空=全部）
 let listFilter = '';
 // 注意：必须有 let 声明！否则会落到浏览器自动生成的 <input id="filterDate"> 元素全局变量上，日期参数变成 [object HTMLInputElement]
 let filterDate = getLocalToday();
@@ -1586,7 +1610,7 @@ async function refreshAll() {
 
 async function loadStats() {
   try {
-    const res = await apiFetch('/api/admin/stats?date=' + today);
+    const res = await apiFetch('/api/admin/stats?date=' + today + (currentAct ? '&act=' + encodeURIComponent(currentAct) : ''));
     const d = await res.json();
     document.getElementById('statsGrid').innerHTML = `
       <div class="stat-card total"><div class="stat-num">${d.total}</div><div class="stat-label">今日预约</div></div>
@@ -1616,7 +1640,7 @@ async function loadStats() {
 
 async function loadQueue() {
   try {
-    const res = await apiFetch('/api/admin/queue');
+    const res = await apiFetch('/api/admin/queue' + (currentAct ? '?act=' + encodeURIComponent(currentAct) : ''));
     const d = await res.json();
 
     // 姓名脱敏 + 手机号（前3位+**+后2位）
@@ -1664,6 +1688,7 @@ async function loadList() {
   try {
     let url = '/api/admin/reservations?date=' + filterDate;
     if (listFilter) url += '&status=' + listFilter;
+    if (currentAct) url += '&act=' + encodeURIComponent(currentAct);
     const res = await apiFetch(url);
     const d = await res.json();
 

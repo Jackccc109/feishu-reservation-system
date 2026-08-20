@@ -967,11 +967,12 @@ app.post('/api/admin/verify/lock', requireAdmin, (req, res) => {
 // ============ 管理端 API（全部要求登录会话，数据限本门店） ============
 
 app.get('/api/admin/stats', requireAdmin, asyncHandler(async (req, res) => {
-  const { date } = req.query;
+  const { date, act } = req.query;
   const filterDate = date || getLocalToday();
   const { store } = resolveTargetStore(req);
-  // 按活动拆分统计：一次拉当日该门店记录，本地分组
-  const dayRecords = await db.getReservationsByDate(filterDate, null, store.code);
+  // 按活动拆分统计：一次拉当日该门店记录，本地分组；act 参数则只统计该活动
+  let dayRecords = await db.getReservationsByDate(filterDate, null, store.code);
+  if (act) dayRecords = dayRecords.filter(r => (r.activity || '') === act);
   const stats = { total: dayRecords.length, pending: 0, checkedIn: 0, cancelled: 0, byActivity: [] };
   const actMap = {};
   for (const a of (store.activities || [])) actMap[a.id] = a.title;
@@ -995,7 +996,7 @@ app.get('/api/admin/stats', requireAdmin, asyncHandler(async (req, res) => {
 }));
 
 app.get('/api/admin/reservations', requireAdmin, asyncHandler(async (req, res) => {
-  const { date, status: statusFilter, search } = req.query;
+  const { date, status: statusFilter, search, act } = req.query;
   const filterDate = date || getLocalToday();
   const { store: myStore } = resolveTargetStore(req);
 
@@ -1005,6 +1006,7 @@ app.get('/api/admin/reservations', requireAdmin, asyncHandler(async (req, res) =
   } else {
     list = await db.getReservationsByDate(filterDate, statusFilter || null, myStore.code);
   }
+  if (act) list = list.filter(r => (r.activity || '') === act);
 
   res.json({
     storeCode: myStore.code,
@@ -1029,9 +1031,14 @@ app.get('/api/admin/reservations', requireAdmin, asyncHandler(async (req, res) =
 app.get('/api/admin/queue', requireAdmin, asyncHandler(async (req, res) => {
   const today = getLocalToday();
   const { store: myStore } = resolveTargetStore(req);
+  const act = req.query.act || '';
 
-  const pending = await db.getPendingByDate(today, myStore.code);
-  const checkedIn = await db.getCheckedInByDate(today, myStore.code);
+  let pending = await db.getPendingByDate(today, myStore.code);
+  let checkedIn = await db.getCheckedInByDate(today, myStore.code);
+  if (act) {
+    pending = pending.filter(r => (r.activity || '') === act);
+    checkedIn = checkedIn.filter(r => (r.activity || '') === act);
+  }
 
   res.json({
     storeCode: myStore.code,
