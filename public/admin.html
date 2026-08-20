@@ -66,12 +66,24 @@
 
         <!-- 方式3：扫一扫 -->
         <div class="checkin-method" id="checkinScan" style="display:none;">
-          <p class="checkin-method-desc">拍照上传客户出示的预约二维码图片</p>
+          <p class="checkin-method-desc">对准顾客出示的预约二维码，自动识别核销</p>
+          <button class="btn btn-scan btn-block" id="btnLiveScan" onclick="startLiveScan()"
+            style="padding:16px;font-size:16px;">
+            📷 实时扫码核销
+          </button>
+          <div id="liveScannerWrap" style="display:none;margin-top:12px;">
+            <div id="liveScanner" style="border-radius:12px;overflow:hidden;"></div>
+            <p style="text-align:center;color:var(--text-secondary);margin:8px 0;font-size:13px;">
+              <span id="liveScanStatus">摄像头启动中…</span>
+              <button class="btn btn-sm btn-outline" onclick="stopLiveScan()" style="margin-left:10px;">关闭摄像头</button>
+            </p>
+          </div>
+          <div style="margin-top:10px;text-align:center;font-size:12px;color:var(--text-tertiary);">— 或 —</div>
           <input type="file" id="qrFileInput" accept="image/*" capture="environment"
             style="display:none;" onchange="handleQrImage(this)">
-          <button class="btn btn-scan btn-block" id="btnScan" onclick="startScanner()"
-            style="padding:16px;font-size:16px;">
-            📷 拍照识别二维码
+          <button class="btn btn-outline btn-block" id="btnScan" onclick="startScanner()"
+            style="padding:12px;font-size:14px;margin-top:10px;">
+            🖼 拍照/相册识别
           </button>
           <div id="scannerArea" style="display:none;">
             <p style="text-align:center;color:var(--text-secondary);margin:12px 0;">
@@ -471,6 +483,7 @@
         </select>
         <button class="btn btn-primary" onclick="addStaff()">添加</button>
       </div>
+      </div>
 
       <div id="staffImportArea">
       <h4 style="margin:16px 0 8px;">批量导入（CSV）</h4>
@@ -485,6 +498,7 @@
       </div>
     </div>
   </div>
+</div>
 </div>
 
 <script>
@@ -1448,7 +1462,7 @@ function switchCheckinTab(tab) {
   document.getElementById(methodMap[tab]).style.display = '';
   document.getElementById('checkinResult').className = 'checkin-result';
   document.querySelectorAll('.form-error').forEach(e => e.classList.remove('show'));
-  if (tab !== 'scan') stopScanner();
+  if (tab !== 'scan') { stopScanner(); stopLiveScan(); }
 }
 
 /* ============ 方式1：手机号签到 ============ */
@@ -1528,6 +1542,46 @@ function showCheckinResult(success, data) {
     `;
   }
   el.scrollIntoView({ behavior: 'smooth' });
+}
+
+/* ============ 实时摄像头扫码（html5-qrcode startScanner） ============ */
+let liveScanner = null;
+
+async function startLiveScan() {
+  const wrap = document.getElementById('liveScannerWrap');
+  const status = document.getElementById('liveScanStatus');
+  wrap.style.display = '';
+  status.textContent = '摄像头启动中…';
+  try {
+    liveScanner = new Html5Qrcode('liveScanner', { verbose: false });
+    await liveScanner.start(
+      { facingMode: 'environment' }, // 后置摄像头
+      { fps: 10, qrbox: { width: 240, height: 240 } },
+      (decodedText) => {
+        // 识别成功 → 停摄像头 → 核销
+        stopLiveScan();
+        onScanSuccess(decodedText);
+      },
+      () => {} // 每帧未识别到（忽略）
+    );
+    status.textContent = '对准二维码，自动识别';
+  } catch (err) {
+    console.error('摄像头启动失败:', err);
+    status.textContent = '无法启动摄像头（需 HTTPS 或浏览器授权）';
+    setTimeout(() => { if (liveScanner === null) wrap.style.display = 'none'; }, 2500);
+  }
+}
+
+async function stopLiveScan() {
+  const wrap = document.getElementById('liveScannerWrap');
+  try {
+    if (liveScanner) {
+      await liveScanner.stop();
+      liveScanner.clear();
+    }
+  } catch (e) { /* ignore */ }
+  liveScanner = null;
+  wrap.style.display = 'none';
 }
 
 /* ============ 扫码器（拍照上传识别，无需 HTTPS） ============ */
